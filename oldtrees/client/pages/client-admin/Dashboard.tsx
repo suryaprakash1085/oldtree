@@ -1021,6 +1021,8 @@ export default function ClientAdminDashboard() {
       toast.error(
         editingProductId
           ? "Failed to update product"
+          : error instanceof Error
+          ? error.message
           : "Failed to create product",
       );
     }
@@ -1058,7 +1060,13 @@ export default function ClientAdminDashboard() {
       setShowCategoryModal(false);
       await fetchTabData("categories", true);
     } catch (err) {
-      toast.error("Failed to save category");
+      toast.error(
+        editingCategoryId
+          ? "Failed to update category"
+          : err instanceof Error
+          ? err.message
+          : "Failed to create category",
+      );
     }
   };
 

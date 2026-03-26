@@ -84,22 +84,117 @@ export const createCategory: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const { name, slug, description } = req.body;
+
+    // ✅ Validate input
     if (!name || !slug) {
-      res.status(400).json({ error: "Name and slug required" });
-      return;
+      return res.status(400).json({ error: "Name and slug required" });
     }
 
+    // =========================================================
+    // 🔥 PLAN VALIDATION START (Categories)
+    // =========================================================
+
+    // 1. Get tenant plan
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+
+    const billingPlan = tenantResult?.[0]?.billing_plan;
+
+    if (!billingPlan) {
+      return res
+        .status(400)
+        .json({ error: "No billing plan assigned" });
+    }
+
+    // 2. Get pricing
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res
+        .status(400)
+        .json({ error: "Invalid billing plan" });
+    }
+
+    // 3. Parse features
+    let features: string[] = [];
+
+    try {
+      features =
+        typeof plan.features === "string"
+          ? JSON.parse(plan.features)
+          : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    // 4. Extract category limit
+    let categoryLimit = Infinity;
+
+    const categoryFeature = features.find((f: string) =>
+      f.toLowerCase().includes("categor")
+    );
+
+    if (categoryFeature) {
+      if (categoryFeature.toLowerCase().includes("unlimited")) {
+        categoryLimit = Infinity;
+      } else {
+        const match = categoryFeature.match(/\d+/);
+        if (match) {
+          categoryLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    // 5. Count existing categories
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM categories WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+
+    // 6. Check limit
+    if (currentCount >= categoryLimit) {
+      return res.status(400).json({
+        error: `Category limit reached (${categoryLimit}). Please upgrade your plan.`,
+      });
+    }
+
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
+
+    // ✅ Create category
     const id = uuidv4();
+
     await query(
-      `INSERT INTO categories (id, tenant_id, name, slug, description) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO categories (id, tenant_id, name, slug, description) 
+       VALUES (?, ?, ?, ?, ?)`,
       [id, tenantId, name, slug, description || null]
     );
 
-    const newRow = await query("SELECT id, name, slug, description FROM categories WHERE id = ?", [id]);
-    res.json({ success: true, data: Array.isArray(newRow) ? newRow[0] : null });
+    const newRow = await query(
+      "SELECT id, name, slug, description FROM categories WHERE id = ?",
+      [id]
+    );
+
+    return res.json({
+      success: true,
+      data: Array.isArray(newRow) ? newRow[0] : null,
+    });
   } catch (error) {
-    console.error('Create category error:', error);
-    res.status(500).json({ error: 'Failed to create category' });
+    console.error("Create category error:", error);
+    return res.status(500).json({
+      error: "Failed to create category",
+    });
   }
 };
 
@@ -138,6 +233,7 @@ export const deleteCategory: RequestHandler = async (req, res) => {
 export const createProduct: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
+
     const {
       name,
       description,
@@ -149,29 +245,126 @@ export const createProduct: RequestHandler = async (req, res) => {
       imageUrl,
     } = req.body;
 
-    // Validate required fields
+    // ✅ 1. Validate name
     if (!name || name.trim() === "") {
-      res.status(400).json({ error: "Product name is required" });
-      return;
+      return res.status(400).json({ error: "Product name is required" });
     }
 
-    // Validate price
-    const numPrice = typeof price === "string" ? parseFloat(price) : price;
-    if (numPrice === undefined || numPrice === null || isNaN(numPrice) || numPrice < 0) {
-      res.status(400).json({ error: "Valid product price is required and must be a positive number" });
-      return;
+    // ✅ 2. Validate price
+    const numPrice =
+      typeof price === "string" ? parseFloat(price) : price;
+
+    if (
+      numPrice === undefined ||
+      numPrice === null ||
+      isNaN(numPrice) ||
+      numPrice < 0
+    ) {
+      return res.status(400).json({
+        error: "Valid product price is required",
+      });
     }
 
+    // =========================================================
+    // 🔥 PLAN VALIDATION START
+    // =========================================================
+
+    // 3. Get tenant billing plan
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+
+    const billingPlan = tenantResult?.[0]?.billing_plan;
+
+    if (!billingPlan) {
+      return res
+        .status(400)
+        .json({ error: "No billing plan assigned to tenant" });
+    }
+
+    // 4. Get pricing details
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res
+        .status(400)
+        .json({ error: "Invalid or inactive billing plan" });
+    }
+
+    // 5. Parse features
+    let features: string[] = [];
+
+    try {
+      features =
+        typeof plan.features === "string"
+          ? JSON.parse(plan.features)
+          : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    // 6. Extract product limit
+    let productLimit = Infinity;
+
+    const productFeature = features.find((f: string) =>
+      f.toLowerCase().includes("product")
+    );
+
+    if (productFeature) {
+      if (productFeature.toLowerCase().includes("unlimited")) {
+        productLimit = Infinity;
+      } else {
+        const match = productFeature.match(/\d+/);
+        if (match) {
+          productLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    // 7. Count current products
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM products WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+
+    // 8. Check limit
+    if (currentCount >= productLimit) {
+      return res.status(400).json({
+        error: `Product limit reached (${productLimit}). Please upgrade your plan.`,
+      });
+    }
+
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
+
+    // ✅ 9. Create product
     const id = generateProductId();
     const finalSku = sku || generateSKU();
 
-    // Parse numeric values properly
-    const numStockQuantity = stockQuantity !== undefined && stockQuantity !== null ? parseInt(String(stockQuantity), 10) || 0 : 0;
-    const numCostPrice = costPrice !== undefined && costPrice !== null ? parseFloat(String(costPrice)) : null;
+    const numStockQuantity =
+      stockQuantity !== undefined && stockQuantity !== null
+        ? parseInt(String(stockQuantity), 10) || 0
+        : 0;
+
+    const numCostPrice =
+      costPrice !== undefined && costPrice !== null
+        ? parseFloat(String(costPrice))
+        : null;
 
     await query(
-      `INSERT INTO products (id, tenant_id, name, description, sku, price, cost_price, category, stock_quantity, image_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products 
+      (id, tenant_id, name, description, sku, price, cost_price, category, stock_quantity, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         tenantId,
@@ -183,18 +376,24 @@ export const createProduct: RequestHandler = async (req, res) => {
         category || null,
         numStockQuantity,
         imageUrl || null,
-      ],
+      ]
     );
 
-    const newProduct = await query("SELECT * FROM products WHERE id = ?", [id]);
+    // ✅ 10. Fetch created product
+    const newProduct: any = await query(
+      "SELECT * FROM products WHERE id = ?",
+      [id]
+    );
 
-    res.json({
+    return res.json({
       success: true,
       data: Array.isArray(newProduct) ? newProduct[0] : null,
     });
   } catch (error) {
     console.error("Create product error:", error);
-    res.status(500).json({ error: "Failed to create product" });
+    return res.status(500).json({
+      error: error,
+    });
   }
 };
 
@@ -607,12 +806,76 @@ export const createDiscount: RequestHandler = async (req, res) => {
     } = req.body;
 
     if (!code || !discountType || !discountValue) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const id = generateDiscountId();
+    // =========================================================
+    // 🔥 PLAN VALIDATION START (Discounts)
+    // =========================================================
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+    const billingPlan = tenantResult?.[0]?.billing_plan;
 
+    if (!billingPlan) {
+      return res.status(400).json({ error: "No billing plan assigned" });
+    }
+
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res.status(400).json({ error: "Invalid billing plan" });
+    }
+
+    let features: string[] = [];
+    try {
+      features =
+        typeof plan.features === "string" ? JSON.parse(plan.features) : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    // Extract discount limit
+    let discountLimit = Infinity;
+    const discountFeature = features.find((f: string) =>
+      f.toLowerCase().includes("discount")
+    );
+
+    if (discountFeature) {
+      if (discountFeature.toLowerCase().includes("unlimited")) {
+        discountLimit = Infinity;
+      } else {
+        const match = discountFeature.match(/\d+/);
+        if (match) {
+          discountLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM discounts WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+    if (currentCount >= discountLimit) {
+      return res.status(400).json({
+        error: `Discount limit reached (${discountLimit}). Please upgrade your plan.`,
+      });
+    }
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
+
+    // Insert new discount
+    const id = generateDiscountId();
     await query(
       `INSERT INTO discounts (id, tenant_id, code, description, discount_type, discount_value, min_order_amount, max_uses, valid_from, valid_until)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -620,19 +883,17 @@ export const createDiscount: RequestHandler = async (req, res) => {
         id,
         tenantId,
         code,
-        description,
+        description || null,
         discountType,
         discountValue,
-        minOrderAmount,
-        maxUses,
-        validFrom,
-        validUntil,
-      ],
+        minOrderAmount || null,
+        maxUses || null,
+        validFrom || null,
+        validUntil || null,
+      ]
     );
 
-    const newDiscount = await query("SELECT * FROM discounts WHERE id = ?", [
-      id,
-    ]);
+    const newDiscount = await query("SELECT * FROM discounts WHERE id = ?", [id]);
 
     res.json({
       success: true,
@@ -1214,28 +1475,117 @@ export const getPages: RequestHandler = async (req, res) => {
 export const createPage: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { title, slug, description, content, seoTitle, seoDescription, seoKeywords, featuredImageUrl, isPublished } = req.body;
+    const {
+      title,
+      slug,
+      description,
+      content,
+      seoTitle,
+      seoDescription,
+      seoKeywords,
+      featuredImageUrl,
+      isPublished,
+    } = req.body;
 
     if (!title || !slug) {
-      res.status(400).json({ error: 'Title and slug required' });
-      return;
+      return res.status(400).json({ error: "Title and slug required" });
     }
 
     if (!tenantId) {
-      res.status(400).json({ error: 'Tenant ID is required' });
-      return;
+      return res.status(400).json({ error: "Tenant ID is required" });
     }
 
-    const id = uuidv4();
-    await query(`INSERT INTO pages (id, tenant_id, title, slug, description, content, seo_title, seo_description, seo_keywords, featured_image_url, is_published, publish_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, tenantId, title, slug, description || null, content || null, seoTitle || null, seoDescription || null, seoKeywords || null, featuredImageUrl || null, !!isPublished, isPublished ? new Date() : null]);
+    // =========================================================
+    // 🔥 PLAN VALIDATION START (Pages)
+    // =========================================================
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+    const billingPlan = tenantResult?.[0]?.billing_plan;
 
-    const row = await query('SELECT * FROM pages WHERE id = ?', [id]);
+    if (!billingPlan) {
+      return res.status(400).json({ error: "No billing plan assigned" });
+    }
+
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res.status(400).json({ error: "Invalid billing plan" });
+    }
+
+    let features: string[] = [];
+    try {
+      features =
+        typeof plan.features === "string" ? JSON.parse(plan.features) : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    // Extract page limit from features
+    let pageLimit = Infinity;
+    const pageFeature = features.find((f: string) =>
+      f.toLowerCase().includes("page")
+    );
+
+    if (pageFeature) {
+      if (pageFeature.toLowerCase().includes("unlimited")) {
+        pageLimit = Infinity;
+      } else {
+        const match = pageFeature.match(/\d+/);
+        if (match) {
+          pageLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM pages WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+    if (currentCount >= pageLimit) {
+      return res.status(400).json({
+        error: `Page limit reached (${pageLimit}). Please upgrade your plan.`,
+      });
+    }
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
+
+    const id = uuidv4();
+    await query(
+      `INSERT INTO pages (id, tenant_id, title, slug, description, content, seo_title, seo_description, seo_keywords, featured_image_url, is_published, publish_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        tenantId,
+        title,
+        slug,
+        description || null,
+        content || null,
+        seoTitle || null,
+        seoDescription || null,
+        seoKeywords || null,
+        featuredImageUrl || null,
+        !!isPublished,
+        isPublished ? new Date() : null,
+      ]
+    );
+
+    const row = await query("SELECT * FROM pages WHERE id = ?", [id]);
     res.json({ success: true, data: Array.isArray(row) ? row[0] : null });
   } catch (err) {
-    console.error('Create page error:', err);
-    const errorMsg = err instanceof Error ? err.message : 'Failed to create page';
-    res.status(500).json({ error: 'Failed to create page', details: errorMsg });
+    console.error("Create page error:", err);
+    const errorMsg = err instanceof Error ? err.message : "Failed to create page";
+    res.status(500).json({ error: "Failed to create page", details: errorMsg });
   }
 };
 
@@ -1293,17 +1643,122 @@ export const getBlogPostsAdmin: RequestHandler = async (req, res) => {
 export const createBlogPost: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
-    const { title, slug, excerpt, content, featuredImageUrl, category, tags, seoTitle, seoDescription, seoKeywords, isPublished } = req.body;
-    if (!title || !slug) { res.status(400).json({ error: 'Title and slug required' }); return; }
+    const {
+      title,
+      slug,
+      excerpt,
+      content,
+      featuredImageUrl,
+      category,
+      tags,
+      seoTitle,
+      seoDescription,
+      seoKeywords,
+      isPublished,
+    } = req.body;
+
+    if (!title || !slug) {
+      return res.status(400).json({ error: "Title and slug required" });
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant ID is required" });
+    }
+
+    // =========================================================
+    // 🔥 PLAN VALIDATION START (Blog Posts)
+    // =========================================================
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+    const billingPlan = tenantResult?.[0]?.billing_plan;
+
+    if (!billingPlan) {
+      return res.status(400).json({ error: "No billing plan assigned" });
+    }
+
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res.status(400).json({ error: "Invalid billing plan" });
+    }
+
+    let features: string[] = [];
+    try {
+      features =
+        typeof plan.features === "string" ? JSON.parse(plan.features) : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    // Extract blog post limit from features
+    let blogLimit = Infinity;
+    const blogFeature = features.find((f: string) =>
+      f.toLowerCase().includes("blog")
+    );
+
+    if (blogFeature) {
+      if (blogFeature.toLowerCase().includes("unlimited")) {
+        blogLimit = Infinity;
+      } else {
+        const match = blogFeature.match(/\d+/);
+        if (match) {
+          blogLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM blog_posts WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+    if (currentCount >= blogLimit) {
+      return res.status(400).json({
+        error: `Blog post limit reached (${blogLimit}). Please upgrade your plan.`,
+      });
+    }
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
+
     const id = uuidv4();
-    await query(`INSERT INTO blog_posts (id, tenant_id, title, slug, excerpt, content, featured_image_url, category, tags, seo_title, seo_description, seo_keywords, is_published, publish_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, tenantId, title, slug, excerpt || null, content || null, featuredImageUrl || null, category || null, Array.isArray(tags) ? tags.join(',') : (tags || null), seoTitle || null, seoDescription || null, seoKeywords || null, !!isPublished, isPublished ? new Date() : null]);
-    const row = await query('SELECT * FROM blog_posts WHERE id = ?', [id]);
+    await query(
+      `INSERT INTO blog_posts
+        (id, tenant_id, title, slug, excerpt, content, featured_image_url, category, tags, seo_title, seo_description, seo_keywords, is_published, publish_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        tenantId,
+        title,
+        slug,
+        excerpt || null,
+        content || null,
+        featuredImageUrl || null,
+        category || null,
+        Array.isArray(tags) ? tags.join(",") : tags || null,
+        seoTitle || null,
+        seoDescription || null,
+        seoKeywords || null,
+        !!isPublished,
+        isPublished ? new Date() : null,
+      ]
+    );
+
+    const row = await query("SELECT * FROM blog_posts WHERE id = ?", [id]);
     res.json({ success: true, data: Array.isArray(row) ? row[0] : null });
   } catch (err) {
-    console.error('Create blog post error:', err);
-    const errorMsg = err instanceof Error ? err.message : 'Failed to create blog post';
-    res.status(500).json({ error: 'Failed to create blog post', details: errorMsg });
+    console.error("Create blog post error:", err);
+    const errorMsg = err instanceof Error ? err.message : "Failed to create blog post";
+    res.status(500).json({ error: "Failed to create blog post", details: errorMsg });
   }
 };
 

@@ -112,14 +112,80 @@ export const createOrder: RequestHandler = async (req, res) => {
     } = req.body;
 
     if (!customerEmail || !items || items.length === 0) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
+      return res.status(400).json({ error: "Missing required fields" });
     }
+
+    // =========================================================
+    // 🔥 PLAN VALIDATION START (Orders)
+    // =========================================================
+    const tenantResult: any = await query(
+      "SELECT billing_plan FROM tenants WHERE id = ?",
+      [tenantId]
+    );
+    const billingPlan = tenantResult?.[0]?.billing_plan;
+
+    if (!billingPlan) {
+      return res.status(400).json({ error: "No billing plan assigned" });
+    }
+
+    const pricingResult: any = await query(
+      "SELECT * FROM pricing WHERE name = ? AND is_active = 1",
+      [billingPlan]
+    );
+
+    const plan = pricingResult?.[0];
+
+    if (!plan) {
+      return res.status(400).json({ error: "Invalid billing plan" });
+    }
+
+    let features: string[] = [];
+    try {
+      features =
+        typeof plan.features === "string" ? JSON.parse(plan.features) : plan.features;
+    } catch (err) {
+      console.error("Feature parse error:", err);
+      features = [];
+    }
+
+    let orderLimit = Infinity;
+    const orderFeature = features.find((f: string) =>
+      f.toLowerCase().includes("order")
+    );
+
+    if (orderFeature) {
+      if (orderFeature.toLowerCase().includes("unlimited")) {
+        orderLimit = Infinity;
+      } else {
+        const match = orderFeature.match(/\d+/);
+        if (match) {
+          orderLimit = parseInt(match[0], 10);
+        }
+      }
+    }
+
+    const countResult: any = await query(
+      "SELECT COUNT(*) as count FROM orders WHERE tenant_id = ?",
+      [tenantId]
+    );
+
+    const currentCount = countResult?.[0]?.count || 0;
+    if (currentCount >= orderLimit) {
+      return res.status(400).json({
+        error: `Order limit reached (${orderLimit}). Please upgrade your plan.`,
+      });
+    }
+    // =========================================================
+    // 🔥 PLAN VALIDATION END
+    // =========================================================
 
     // Fetch tenant minimum order amount if set
     let minOrder = 0;
     try {
-      const tenants = await query("SELECT min_order_amount FROM tenants WHERE id = ?", [tenantId]);
+      const tenants = await query(
+        "SELECT min_order_amount FROM tenants WHERE id = ?",
+        [tenantId]
+      );
       if (Array.isArray(tenants) && tenants.length > 0) {
         minOrder = (tenants[0] as any).min_order_amount || 0;
       }
@@ -134,25 +200,28 @@ export const createOrder: RequestHandler = async (req, res) => {
     let totalAmount = 0;
     let discountAmount = 0;
 
-    // Fetch ALL products in one query instead of looping - eliminates N+1
+    // Fetch all products for order
     const productIds = items.map(item => item.productId);
     const products = await query(
-      `SELECT id, price FROM products WHERE id IN (${productIds.map(() => '?').join(',')}) AND tenant_id = ?`,
-      [...productIds, tenantId],
+      `SELECT id, price, name, stock_quantity FROM products 
+       WHERE id IN (${productIds.map(() => '?').join(',')}) AND tenant_id = ?`,
+      [...productIds, tenantId]
     );
 
-    const priceMap = new Map<string, number>();
+    const productMap = new Map<string, any>();
     if (Array.isArray(products)) {
-      (products as any[]).forEach(p => {
-        priceMap.set(p.id, p.price);
-      });
+      (products as any[]).forEach(p => productMap.set(p.id, p));
     }
 
     for (const item of items) {
-      const price = priceMap.get(item.productId) || 0;
-      totalAmount += price * item.quantity;
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return res.status(400).json({ error: `Product ${item.productId} not found` });
+      }
+      totalAmount += product.price * item.quantity;
     }
 
+    // Apply discount
     if (discountCode) {
       const discounts = await query(
         `SELECT discount_value, discount_type, min_order_amount FROM discounts
@@ -160,57 +229,55 @@ export const createOrder: RequestHandler = async (req, res) => {
          AND (valid_from IS NULL OR valid_from <= NOW())
          AND (valid_until IS NULL OR valid_until >= NOW())
          AND (max_uses IS NULL OR used_count < max_uses)`,
-        [discountCode, tenantId],
+        [discountCode, tenantId]
       );
 
       if (Array.isArray(discounts) && discounts.length > 0) {
         const discount = discounts[0] as any;
-
-        // Check minimum order amount for discount
         if (discount.min_order_amount && totalAmount < discount.min_order_amount) {
-          res.status(400).json({ error: `This discount requires a minimum order of ₹${discount.min_order_amount}` });
-          return;
+          return res.status(400).json({
+            error: `This discount requires a minimum order of ₹${discount.min_order_amount}`,
+          });
         }
-
-        if (discount.discount_type === "percentage") {
-          discountAmount = (totalAmount * discount.discount_value) / 100;
-        } else {
-          discountAmount = discount.discount_value;
-        }
+        discountAmount =
+          discount.discount_type === "percentage"
+            ? (totalAmount * discount.discount_value) / 100
+            : discount.discount_value;
       } else {
-        res.status(400).json({ error: "Invalid or expired discount code" });
-        return;
+        return res.status(400).json({ error: "Invalid or expired discount code" });
       }
     }
 
     const finalAmount = totalAmount - discountAmount;
-
     if (minOrder && finalAmount < minOrder) {
-      res.status(400).json({ error: `Minimum order amount is ₹${minOrder}. Add more items to continue.` });
-      return;
+      return res.status(400).json({
+        error: `Minimum order amount is ₹${minOrder}. Add more items to continue.`,
+      });
     }
 
+    // Create or update customer
     let customerId_existing = null;
     const existingCustomers = await query(
       "SELECT id FROM customers WHERE tenant_id = ? AND email = ?",
-      [tenantId, customerEmail],
+      [tenantId, customerEmail]
     );
 
     if (Array.isArray(existingCustomers) && existingCustomers.length > 0) {
       customerId_existing = (existingCustomers[0] as any).id;
       await query(
         "UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?",
-        [finalAmount, customerId_existing],
+        [finalAmount, customerId_existing]
       );
     } else {
       await query(
         `INSERT INTO customers (id, tenant_id, email, first_name, total_orders, total_spent)
          VALUES (?, ?, ?, ?, 1, ?)`,
-        [customerId, tenantId, customerEmail, customerName, finalAmount],
+        [customerId, tenantId, customerEmail, customerName, finalAmount]
       );
       customerId_existing = customerId;
     }
 
+    // Insert order
     await query(
       `INSERT INTO orders (id, tenant_id, order_number, customer_email, customer_name, customer_phone, total_amount, discount_amount, shipping_address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -224,68 +291,41 @@ export const createOrder: RequestHandler = async (req, res) => {
         finalAmount,
         discountAmount,
         JSON.stringify(shippingAddress),
-      ],
+      ]
     );
 
-    // Fetch all product details in one query instead of looping
-    const allProducts = await query(
-      `SELECT id, price, name, stock_quantity FROM products WHERE id IN (${productIds.map(() => '?').join(',')}) AND tenant_id = ?`,
-      [...productIds, tenantId],
-    );
-
-    const productMap = new Map<string, any>();
-    if (Array.isArray(allProducts)) {
-      (allProducts as any[]).forEach(p => {
-        productMap.set(p.id, p);
-      });
-    }
-
-    const { v4: uuidv4 } = await import("uuid");
+    // Insert order items & update stock
     for (const item of items) {
       const product = productMap.get(item.productId);
       if (product) {
         const itemId = uuidv4();
-        const price = product.price;
-        const productName = product.name;
-        const itemTotal = price * item.quantity;
+        const itemTotal = product.price * item.quantity;
 
         await query(
           `INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price, total_price)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [itemId, orderId, item.productId, productName, item.quantity, price, itemTotal],
+          [itemId, orderId, item.productId, product.name, item.quantity, product.price, itemTotal]
         );
 
-        // Update product stock quantity
-        const currentStock = product.stock_quantity || 0;
-        const newStock = Math.max(0, currentStock - item.quantity);
-        await query(
-          "UPDATE products SET stock_quantity = ? WHERE id = ?",
-          [newStock, item.productId],
-        );
-      } else {
-        console.warn(`Product ${item.productId} not found for order ${orderId}`);
+        // Update stock
+        const newStock = Math.max(0, (product.stock_quantity || 0) - item.quantity);
+        await query("UPDATE products SET stock_quantity = ? WHERE id = ?", [newStock, item.productId]);
       }
     }
 
-    // Fetch complete order with items
+    // Fetch order & items
     const newOrder = await query("SELECT * FROM orders WHERE id = ?", [orderId]);
     const orderItems = await query("SELECT * FROM order_items WHERE order_id = ?", [orderId]);
 
-    // Try to send email notification (only if customer opted in)
+    // Send email if opted
     try {
       if (sendEmail) {
-        const emailSettings = await query(
-          "SELECT * FROM email_settings WHERE tenant_id = ?",
-          [tenantId]
-        );
-
+        const emailSettings = await query("SELECT * FROM email_settings WHERE tenant_id = ?", [tenantId]);
         if (Array.isArray(emailSettings) && emailSettings.length > 0) {
           const settings = emailSettings[0] as any;
           const { sendOrderNotificationEmail } = await import("../utils/email");
 
           const orderForEmail = Array.isArray(newOrder) && newOrder.length > 0 ? newOrder[0] : null;
-          const itemsForEmail = Array.isArray(orderItems) ? orderItems : [];
-
           if (orderForEmail) {
             await sendOrderNotificationEmail(settings, {
               orderId: orderForEmail.id,
@@ -293,12 +333,12 @@ export const createOrder: RequestHandler = async (req, res) => {
               customerName: orderForEmail.customer_name,
               customerEmail: orderForEmail.customer_email,
               customerPhone: orderForEmail.customer_phone,
-              items: itemsForEmail.map((item: any) => ({
+              items: Array.isArray(orderItems) ? orderItems.map((item: any) => ({
                 product_name: item.product_name,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
                 total_price: item.total_price,
-              })),
+              })) : [],
               subtotal: totalAmount,
               discount: discountAmount,
               tax: 0,
@@ -310,14 +350,12 @@ export const createOrder: RequestHandler = async (req, res) => {
             });
           }
         }
-      } else {
-        console.log(`Order ${orderNumber}: Customer opted out of confirmation email`);
       }
     } catch (emailError) {
       console.error("Error sending order notification email:", emailError);
-      // Don't fail the order creation if email fails
     }
 
+    // ✅ Return response
     res.json({
       success: true,
       data: {
