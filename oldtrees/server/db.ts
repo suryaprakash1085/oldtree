@@ -41,6 +41,9 @@ export async function query(sql: string, values?: any[]) {
   }
 }
 
+
+
+
 export async function initializeDatabase() {
   const connection = await getConnection();
   try {
@@ -150,6 +153,26 @@ export async function initializeDatabase() {
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
       )
     `);
+
+
+  // Create pricing plans table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS pricing (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        description VARCHAR(500),
+        price DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT '₹',
+        billing_period VARCHAR(50) NOT NULL,
+        features LONGTEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_is_active (is_active),
+        UNIQUE KEY unique_name (name)
+      )
+    `);
+
 
     // Create users table
     await connection.execute(`

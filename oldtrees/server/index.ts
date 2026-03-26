@@ -335,6 +335,34 @@ export function createServer() {
     superAdminRoutes.getBilling,
   );
 
+
+
+   app.get(
+    "/api/super-admin/billing",
+    authMiddleware,
+    superAdminRoutes.getBilling,
+  );
+  app.get(
+    "/api/super-admin/pricing",
+    authMiddleware,
+    superAdminRoutes.getPricing,
+  );
+  app.post(
+    "/api/super-admin/pricing",
+    authMiddleware,
+    superAdminRoutes.createPricing,
+  );
+  app.put(
+    "/api/super-admin/pricing/:pricingId",
+    authMiddleware,
+    superAdminRoutes.updatePricing,
+  );
+  app.delete(
+    "/api/super-admin/pricing/:pricingId",
+    authMiddleware,
+    superAdminRoutes.deletePricing,
+  );
+
   // Client Admin Routes - support both with and without tenantId in URL
   app.get(
     "/api/client-admin/dashboard",

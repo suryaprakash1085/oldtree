@@ -16,6 +16,7 @@ import {
   Trash2,
   Pause,
   Play,
+  Tag,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -31,10 +32,14 @@ import {
   suspendSuperAdminClient,
   reactivateSuperAdminClient,
   deleteSuperAdminClient,
+  getSuperAdminPricing,
+  createSuperAdminPricing,
+  updateSuperAdminPricing,
+  deleteSuperAdminPricing,
 } from "@/lib/api";
 import { Toaster, toast } from "sonner";
 
-type TabType = "dashboard" | "clients" | "billing" | "analytics" | "themes" | "settings";
+type TabType = "dashboard" | "clients" | "billing" | "analytics" | "themes" | "pricing" |"settings";
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -44,8 +49,19 @@ export default function SuperAdminDashboard() {
   const [clients, setClients] = useState<any[]>([]);
   const [billing, setBilling] = useState<any[]>([]);
   const [themes, setThemes] = useState<any[]>([]);
+    const [pricing, setPricing] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClientModal, setShowClientModal] = useState(false);
+ const [showPricingModal, setShowPricingModal] = useState(false);
+
+
+ const getDefaultBillingPlan = () => {
+    if (pricing && pricing.length > 0) {
+      return pricing[0].name || "starter";
+    }
+    return "starter";
+  };
+
 
   const [clientForm, setClientForm] = useState({
     companyName: "",
@@ -55,6 +71,20 @@ export default function SuperAdminDashboard() {
     billingPlan: "starter",
   });
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+
+
+ const [pricingForm, setPricingForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    currency: "₹",
+    billingPeriod: "month",
+    features: "",
+  });
+  const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
+
+
+
 
   useEffect(() => {
     const token = getAuthToken();
@@ -73,16 +103,18 @@ export default function SuperAdminDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, clientsData, billingData, themesData] = await Promise.all([
+      const [analyticsData, clientsData, billingData, themesData,pricingData] = await Promise.all([
         getSuperAdminAnalytics(),
         getSuperAdminClients(),
         getSuperAdminBilling(),
         getSuperAdminThemes(),
+        getSuperAdminPricing(),
       ]);
       setAnalytics(analyticsData.data);
       setClients(clientsData.data || []);
       setBilling(billingData.data || []);
       setThemes(themesData.data || []);
+      setPricing(pricingData.data || []);
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("Failed to load dashboard data");
@@ -159,6 +191,82 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleCreatePricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const features = pricingForm.features
+        .split("\n")
+        .map((f) => f.trim())
+        .filter((f) => f.length > 0);
+
+      const payload = {
+        name: pricingForm.name,
+        description: pricingForm.description,
+        price: pricingForm.price ? parseFloat(pricingForm.price) : null,
+        currency: pricingForm.currency,
+        billingPeriod: pricingForm.billingPeriod,
+        features,
+      };
+
+      if (editingPricingId) {
+        await updateSuperAdminPricing(editingPricingId, payload);
+        toast.success("Pricing plan updated successfully");
+      } else {
+        await createSuperAdminPricing(payload);
+        toast.success("Pricing plan created successfully");
+      }
+
+      setShowPricingModal(false);
+      setEditingPricingId(null);
+      setPricingForm({
+        name: "",
+        description: "",
+        price: "",
+        currency: "₹",
+        billingPeriod: "month",
+        features: "",
+      });
+      loadData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : editingPricingId
+            ? "Failed to update pricing plan"
+            : "Failed to create pricing plan"
+      );
+    }
+  };
+
+  const handleStartEditPricing = (plan: any) => {
+    setEditingPricingId(plan.id);
+    setPricingForm({
+      name: plan.name,
+      description: plan.description || "",
+      price: plan.price ? plan.price.toString() : "",
+      currency: plan.currency || "₹",
+      billingPeriod: plan.billing_period,
+      features: Array.isArray(plan.features) ? plan.features.join("\n") : "",
+    });
+    setShowPricingModal(true);
+  };
+
+  const handleDeletePricing = async (pricingId: string) => {
+    if (!confirm("Are you sure you want to delete this pricing plan?")) {
+      return;
+    }
+    try {
+      await deleteSuperAdminPricing(pricingId);
+      toast.success("Pricing plan deleted successfully");
+      loadData();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete pricing plan"
+      );
+    }
+  };
+
+
   const handleLogout = () => {
     clearAuthToken();
     navigate("/");
@@ -180,6 +288,7 @@ export default function SuperAdminDashboard() {
     { id: "clients", icon: Users, label: "Clients" },
     { id: "billing", icon: DollarSign, label: "Billing" },
     { id: "analytics", icon: TrendingUp, label: "Analytics" },
+     { id: "pricing", icon: Tag, label: "Pricing" },
     { id: "settings", icon: Settings, label: "Settings" },
   ];
 
@@ -396,7 +505,7 @@ export default function SuperAdminDashboard() {
                 </Button>
               </div>
 
-              {showClientModal && (
+              {/* {showClientModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between p-6 border-b border-slate-200">
@@ -527,6 +636,169 @@ export default function SuperAdminDashboard() {
                               contactEmail: "",
                               contactPhone: "",
                               billingPlan: "starter",
+                            });
+                          }}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )} */}
+
+               {showClientModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                      <h3 className="text-xl font-bold text-slate-900">
+                        {editingClientId ? "Edit Client" : "Add New Client"}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowClientModal(false);
+                          setEditingClientId(null);
+                          setClientForm({
+                            companyName: "",
+                            domain: "",
+                            contactEmail: "",
+                            contactPhone: "",
+                            billingPlan: getDefaultBillingPlan(),
+                          });
+                        }}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={handleCreateClient}
+                      className="p-6 space-y-4"
+                    >
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-1">
+                            Company Name *
+                          </label>
+                          <Input
+                            value={clientForm.companyName}
+                            onChange={(e) =>
+                              setClientForm({
+                                ...clientForm,
+                                companyName: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-1">
+                            Domain
+                          </label>
+                          <Input
+                            value={clientForm.domain}
+                            onChange={(e) =>
+                              setClientForm({
+                                ...clientForm,
+                                domain: e.target.value,
+                              })
+                            }
+                            placeholder="store.example.com"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-1">
+                            Contact Email *
+                          </label>
+                          <Input
+                            type="email"
+                            value={clientForm.contactEmail}
+                            onChange={(e) =>
+                              setClientForm({
+                                ...clientForm,
+                                contactEmail: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-1">
+                            Contact Phone
+                          </label>
+                          <Input
+                            value={clientForm.contactPhone}
+                            onChange={(e) =>
+                              setClientForm({
+                                ...clientForm,
+                                contactPhone: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 mb-1">
+                          Billing Plan
+                        </label>
+                        <select
+                          value={clientForm.billingPlan}
+                          onChange={(e) =>
+                            setClientForm({
+                              ...clientForm,
+                              billingPlan: e.target.value,
+                            })
+                          }
+                          className="w-full border border-slate-300 rounded-lg p-2"
+                        >
+                          {pricing && pricing.length > 0 ? (
+                            <>
+                              {!pricing.some((plan) => plan.name === clientForm.billingPlan) && clientForm.billingPlan && (
+                                <option value={clientForm.billingPlan}>
+                                  {clientForm.billingPlan} (current)
+                                </option>
+                              )}
+                              {pricing.map((plan) => (
+                                <option key={plan.id} value={plan.name}>
+                                  {plan.name}{" "}
+                                  {plan.price != null
+                                    ? `(${plan.currency || "₹"}${Number(plan.price).toLocaleString()} / ${plan.billing_period})`
+                                    : "(Custom)"}
+                                </option>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <option value="starter">Starter (₹1,200/mo)</option>
+                              <option value="growth">Growth (₹5,000/mo)</option>
+                              <option value="enterprise">Enterprise (Custom)</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <Button type="submit" className="flex-1">
+                          {editingClientId ? "Update Client" : "Create Client"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowClientModal(false);
+                            setEditingClientId(null);
+                            setClientForm({
+                              companyName: "",
+                              domain: "",
+                              contactEmail: "",
+                              contactPhone: "",
+                              billingPlan: getDefaultBillingPlan(),
                             });
                           }}
                           className="flex-1"
@@ -798,6 +1070,106 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
+
+           {/* Pricing Tab */}
+          {currentTab === "pricing" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Pricing Plans
+                </h2>
+                <Button
+                  onClick={() => {
+                    setEditingPricingId(null);
+                    setPricingForm({
+                      name: "",
+                      description: "",
+                      price: "",
+                      currency: "₹",
+                      billingPeriod: "month",
+                      features: "",
+                    });
+                    setShowPricingModal(true);
+                  }}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Pricing Plan
+                </Button>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pricing && pricing.length > 0 ? (
+                  pricing.map((plan: any) => (
+                    <div
+                      key={plan.id}
+                      className="bg-white rounded-lg border border-slate-200 p-8 hover:shadow-lg transition-shadow relative"
+                    >
+                      <div className="absolute top-4 right-4 flex gap-2">
+                        <button
+                          onClick={() => handleStartEditPricing(plan)}
+                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4 text-slate-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePricing(plan.id)}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                          {plan.name}
+                        </h3>
+                        <p className="text-slate-600 text-sm mb-4">
+                          {plan.description}
+                        </p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-bold text-slate-900">
+                            {plan.price ? (
+                              <>
+                                {plan.currency}
+                                {plan.price.toLocaleString()}
+                              </>
+                            ) : (
+                              "Custom"
+                            )}
+                          </span>
+                          {plan.billing_period && plan.billing_period !== "custom" && (
+                            <span className="text-slate-600">/{plan.billing_period}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-slate-900 mb-4 uppercase tracking-wide">
+                          Features
+                        </h4>
+                        <ul className="space-y-3">
+                          {plan.features && plan.features.map((feature: string, idx: number) => (
+                            <li key={idx} className="flex items-center gap-2 text-slate-700">
+                              <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
+                              <span className="text-sm">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 p-12 text-center">
+                    <Tag className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-600">No pricing plans available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Settings Tab */}
           {currentTab === "settings" && (
             <div>
@@ -850,6 +1222,170 @@ export default function SuperAdminDashboard() {
             </div>
           )}
         </div>
+
+         {/* Pricing Modal - Global Level */}
+        {showPricingModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                <h3 className="text-xl font-bold text-slate-900">
+                  {editingPricingId ? "Edit Pricing Plan" : "Add New Pricing Plan"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPricingModal(false);
+                    setEditingPricingId(null);
+                    setPricingForm({
+                      name: "",
+                      description: "",
+                      price: "",
+                      currency: "₹",
+                      billingPeriod: "month",
+                      features: "",
+                    });
+                  }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleCreatePricing}
+                className="p-6 space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                    Plan Name *
+                  </label>
+                  <Input
+                    value={pricingForm.name}
+                    onChange={(e) =>
+                      setPricingForm({
+                        ...pricingForm,
+                        name: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                    Description
+                  </label>
+                  <Input
+                    value={pricingForm.description}
+                    onChange={(e) =>
+                      setPricingForm({
+                        ...pricingForm,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-900 mb-1">
+                      Price
+                    </label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={pricingForm.price}
+                      onChange={(e) =>
+                        setPricingForm({
+                          ...pricingForm,
+                          price: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., 1200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-900 mb-1">
+                      Currency
+                    </label>
+                    <Input
+                      value={pricingForm.currency}
+                      onChange={(e) =>
+                        setPricingForm({
+                          ...pricingForm,
+                          currency: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                    Billing Period *
+                  </label>
+                  <select
+                    value={pricingForm.billingPeriod}
+                    onChange={(e) =>
+                      setPricingForm({
+                        ...pricingForm,
+                        billingPeriod: e.target.value,
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-lg p-2"
+                    required
+                  >
+                    <option value="month">Monthly</option>
+                    <option value="year">Yearly</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                    Features (one per line)
+                  </label>
+                  <textarea
+                    value={pricingForm.features}
+                    onChange={(e) =>
+                      setPricingForm({
+                        ...pricingForm,
+                        features: e.target.value,
+                      })
+                    }
+                    rows={5}
+                    placeholder="Up to 100 products&#10;Basic analytics&#10;Email support"
+                    className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button type="submit" className="flex-1">
+                    {editingPricingId ? "Update Plan" : "Create Plan"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPricingModal(false);
+                      setEditingPricingId(null);
+                      setPricingForm({
+                        name: "",
+                        description: "",
+                        price: "",
+                        currency: "₹",
+                        billingPeriod: "month",
+                        features: "",
+                      });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
