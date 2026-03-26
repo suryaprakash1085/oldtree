@@ -1,0 +1,252 @@
+.fireworks-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.firework-burst {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.firework-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  left: 0;
+  top: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+@keyframes burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+    filter: brightness(1.2);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+      calc(cos(var(--angle)) * 200px),
+      calc(sin(var(--angle)) * 200px)
+    ) scale(0);
+    filter: brightness(0.8);
+  }
+}
+
+/* Fallback animations for each particle direction */
+.firework-particle:nth-child(1) {
+  --angle: 0deg;
+  animation: burst-0 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(2) {
+  --angle: 30deg;
+  animation: burst-1 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(3) {
+  --angle: 60deg;
+  animation: burst-2 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(4) {
+  --angle: 90deg;
+  animation: burst-3 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(5) {
+  --angle: 120deg;
+  animation: burst-4 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(6) {
+  --angle: 150deg;
+  animation: burst-5 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(7) {
+  --angle: 180deg;
+  animation: burst-6 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(8) {
+  --angle: 210deg;
+  animation: burst-7 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(9) {
+  --angle: 240deg;
+  animation: burst-8 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(10) {
+  --angle: 270deg;
+  animation: burst-9 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(11) {
+  --angle: 300deg;
+  animation: burst-10 3.5s ease-out forwards;
+}
+
+.firework-particle:nth-child(12) {
+  --angle: 330deg;
+  animation: burst-11 3.5s ease-out forwards;
+}
+
+/* Individual animations for each direction */
+@keyframes burst-0 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(200px, 0) scale(0);
+  }
+}
+
+@keyframes burst-1 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(173px, 100px) scale(0);
+  }
+}
+
+@keyframes burst-2 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(100px, 173px) scale(0);
+  }
+}
+
+@keyframes burst-3 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 200px) scale(0);
+  }
+}
+
+@keyframes burst-4 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-100px, 173px) scale(0);
+  }
+}
+
+@keyframes burst-5 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-173px, 100px) scale(0);
+  }
+}
+
+@keyframes burst-6 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-200px, 0) scale(0);
+  }
+}
+
+@keyframes burst-7 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-173px, -100px) scale(0);
+  }
+}
+
+@keyframes burst-8 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-100px, -173px) scale(0);
+  }
+}
+
+@keyframes burst-9 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, -200px) scale(0);
+  }
+}
+
+@keyframes burst-10 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(100px, -173px) scale(0);
+  }
+}
+
+@keyframes burst-11 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(173px, -100px) scale(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .firework-particle {
+    width: 6px;
+    height: 6px;
+  }
+
+  [class*="burst-"] {
+    animation-duration: 3s;
+  }
+}

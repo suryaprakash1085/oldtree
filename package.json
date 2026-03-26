@@ -1,0 +1,21 @@
+{
+  "name": "multi-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"cd oldtree && pnpm dev\" \"cd tenant-app && pnpm dev\"",
+    "dev:oldtree": "cd oldtree && pnpm dev",
+    "dev:tenant": "cd tenant-app && pnpm dev",
+    "dev:tenant:any": "cd tenant-app && pnpm dev:any-port",
+    "install:all": "pnpm install -r",
+    "build": "pnpm -r build",
+    " start": "node oldtree/dist/server/node-build.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748",
+  "dependencies": {
+    "compression": "^1.8.1"
+  }
+}
