@@ -103,67 +103,115 @@ export const updateClient: RequestHandler = async (req, res) => {
     const userRole = (req as any).role;
     const { clientId } = req.params;
 
-    // Verify user is super-admin
     if (userRole !== "super-admin") {
-      res.status(403).json({ error: "Unauthorized: Only super admins can update clients" });
-      return;
+      return res.status(403).json({
+        error: "Unauthorized: Only super admins can update clients",
+      });
     }
 
     if (!clientId) {
-      res.status(400).json({ error: "Client ID is required" });
-      return;
+      return res.status(400).json({ error: "Client ID is required" });
     }
 
-    const { companyName, domain, contactEmail, contactPhone, billingPlan } =
-      req.body;
+    const {
+      companyName,
+      domain,
+      contactEmail,
+      contactPhone,
+      billingPlan,
+    } = req.body;
 
     if (!companyName || !contactEmail) {
-      res.status(400).json({ error: "Company name and contact email are required" });
-      return;
+      return res.status(400).json({
+        error: "Company name and contact email are required",
+      });
     }
 
-    // Verify client exists before updating
+    // ✅ Normalize values
+    const normalizedDomain =
+      typeof domain === "string" && domain.trim().length > 0
+        ? domain.trim()
+        : null;
+
+    const normalizedPhone =
+      typeof contactPhone === "string" && contactPhone.trim().length > 0
+        ? contactPhone.trim()
+        : null;
+
+    const normalizedBilling =
+      typeof billingPlan === "string" && billingPlan.trim().length > 0
+        ? billingPlan.trim()
+        : "starter";
+
+    // ✅ Check client exists
     const clientExists = await query(
       "SELECT id FROM tenants WHERE id = ?",
       [clientId]
     );
 
     if (!Array.isArray(clientExists) || clientExists.length === 0) {
-      res.status(404).json({ error: "Client not found" });
-      return;
+      return res.status(404).json({ error: "Client not found" });
     }
 
-    // Check if domain is being changed and if it's already in use
-    if (domain) {
+    // ✅ Check domain uniqueness ONLY if provided
+    if (normalizedDomain !== null) {
       const existingDomain = await query(
         "SELECT id FROM tenants WHERE domain = ? AND id != ?",
-        [domain, clientId]
+        [normalizedDomain, clientId]
       );
 
       if (Array.isArray(existingDomain) && existingDomain.length > 0) {
-        res.status(409).json({ error: "Domain is already in use by another client" });
-        return;
+        return res.status(409).json({
+          error: "Domain is already in use by another client",
+        });
       }
     }
 
+    // 🔥 DYNAMIC UPDATE QUERY (KEY FIX)
+    let updateFields = `
+      company_name = ?,
+      contact_email = ?,
+      contact_phone = ?,
+      billing_plan = ?,
+      updated_at = NOW()
+    `;
+
+    const values: any[] = [
+      companyName.trim(),
+      contactEmail.trim(),
+      normalizedPhone,
+      normalizedBilling,
+    ];
+
+    // ✅ Only include domain if user sent it
+    if (domain !== undefined) {
+      updateFields = `domain = ?, ` + updateFields;
+      values.unshift(normalizedDomain);
+    }
+
+    values.push(clientId);
+
     await query(
-      `UPDATE tenants SET
-        company_name = ?, domain = ?, contact_email = ?, contact_phone = ?, billing_plan = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [companyName, domain || null, contactEmail, contactPhone || null, billingPlan || "starter", clientId],
+      `UPDATE tenants SET ${updateFields} WHERE id = ?`,
+      values
     );
 
-    const updated = await query("SELECT * FROM tenants WHERE id = ?", [
-      clientId,
-    ]);
+    // ✅ Fetch updated record
+    const updated = await query(
+      "SELECT * FROM tenants WHERE id = ?",
+      [clientId]
+    );
 
-    res.json({
+    return res.json({
       success: true,
       data: Array.isArray(updated) ? updated[0] : null,
     });
+
   } catch (error) {
     console.error("Update client error:", error);
-    res.status(500).json({ error: "Failed to update client" });
+    return res.status(500).json({
+      error: "Failed to update client",
+    });
   }
 };
 
