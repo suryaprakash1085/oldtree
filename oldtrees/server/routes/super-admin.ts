@@ -394,3 +394,196 @@ export const getBilling: RequestHandler = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch billing data" });
   }
 };
+
+export const getPricing: RequestHandler = async (req, res) => {
+  try {
+    const pricingPlans = await query(
+      "SELECT * FROM pricing WHERE is_active = TRUE ORDER BY price ASC, name ASC"
+    );
+
+    // Parse features JSON for each plan
+    const plans = Array.isArray(pricingPlans)
+      ? pricingPlans.map((plan: any) => ({
+          ...plan,
+          features: plan.features ? JSON.parse(plan.features) : [],
+        }))
+      : [];
+
+    res.json({
+      success: true,
+      data: plans,
+    });
+  } catch (error) {
+    console.error("Get pricing error:", error);
+    res.status(500).json({ error: "Failed to fetch pricing plans" });
+  }
+};
+
+export const createPricing: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+
+    // Verify user is super-admin
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can create pricing plans" });
+      return;
+    }
+
+    const { name, description, price, currency, billingPeriod, features } =
+      req.body;
+
+    if (!name || !billingPeriod) {
+      res.status(400).json({ error: "Name and billing period are required" });
+      return;
+    }
+
+    const { v4: uuidv4 } = await import("uuid");
+    const id = uuidv4();
+
+    await query(
+      `INSERT INTO pricing (id, name, description, price, currency, billing_period, features, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)`,
+      [
+        id,
+        name,
+        description,
+        price || null,
+        currency || "₹",
+        billingPeriod,
+        features ? JSON.stringify(features) : JSON.stringify([]),
+      ]
+    );
+
+    const newPlan = await query("SELECT * FROM pricing WHERE id = ?", [id]);
+
+    const plan = Array.isArray(newPlan)
+      ? {
+          ...newPlan[0],
+          features: (newPlan[0] as any).features
+            ? JSON.parse((newPlan[0] as any).features)
+            : [],
+        }
+      : null;
+
+    res.json({
+      success: true,
+      data: plan,
+    });
+  } catch (error) {
+    console.error("Create pricing error:", error);
+    res.status(500).json({ error: "Failed to create pricing plan" });
+  }
+};
+
+export const updatePricing: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+    const { pricingId } = req.params;
+
+    // Verify user is super-admin
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can update pricing plans" });
+      return;
+    }
+
+    if (!pricingId) {
+      res.status(400).json({ error: "Pricing ID is required" });
+      return;
+    }
+
+    const { name, description, price, currency, billingPeriod, features } =
+      req.body;
+
+    if (!name || !billingPeriod) {
+      res.status(400).json({ error: "Name and billing period are required" });
+      return;
+    }
+
+    // Verify pricing plan exists
+    const pricingExists = await query(
+      "SELECT id FROM pricing WHERE id = ?",
+      [pricingId]
+    );
+
+    if (!Array.isArray(pricingExists) || pricingExists.length === 0) {
+      res.status(404).json({ error: "Pricing plan not found" });
+      return;
+    }
+
+    await query(
+      `UPDATE pricing SET
+        name = ?, description = ?, price = ?, currency = ?, billing_period = ?, features = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [
+        name,
+        description,
+        price || null,
+        currency || "₹",
+        billingPeriod,
+        features ? JSON.stringify(features) : JSON.stringify([]),
+        pricingId,
+      ]
+    );
+
+    const updated = await query("SELECT * FROM pricing WHERE id = ?", [
+      pricingId,
+    ]);
+
+    const plan = Array.isArray(updated)
+      ? {
+          ...updated[0],
+          features: (updated[0] as any).features
+            ? JSON.parse((updated[0] as any).features)
+            : [],
+        }
+      : null;
+
+    res.json({
+      success: true,
+      data: plan,
+    });
+  } catch (error) {
+    console.error("Update pricing error:", error);
+    res.status(500).json({ error: "Failed to update pricing plan" });
+  }
+};
+
+export const deletePricing: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+    const { pricingId } = req.params;
+
+    // Verify user is super-admin
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can delete pricing plans" });
+      return;
+    }
+
+    if (!pricingId) {
+      res.status(400).json({ error: "Pricing ID is required" });
+      return;
+    }
+
+    // Verify pricing plan exists
+    const pricingExists = await query(
+      "SELECT id FROM pricing WHERE id = ?",
+      [pricingId]
+    );
+
+    if (!Array.isArray(pricingExists) || pricingExists.length === 0) {
+      res.status(404).json({ error: "Pricing plan not found" });
+      return;
+    }
+
+    // Soft delete by marking as inactive
+    await query("UPDATE pricing SET is_active = FALSE WHERE id = ?", [
+      pricingId,
+    ]);
+
+    res.json({ success: true, message: "Pricing plan deleted" });
+  } catch (error) {
+    console.error("Delete pricing error:", error);
+    res.status(500).json({ error: "Failed to delete pricing plan" });
+  }
+};
+

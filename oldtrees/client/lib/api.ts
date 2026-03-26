@@ -948,3 +948,59 @@ export async function getStorefrontPage(tenantId: string, slug: string) {
   if (!response.ok) throw new Error('Failed to fetch page');
   return response.json();
 }
+
+
+
+export async function getSuperAdminPricing() {
+  const response = await fetch(`${API_BASE}/super-admin/pricing`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch pricing");
+  return response.json();
+}
+
+export async function createSuperAdminPricing(data: {
+  name: string;
+  description?: string;
+  price?: number;
+  currency?: string;
+  billingPeriod: string;
+  features?: string[];
+}) {
+  const response = await fetch(`${API_BASE}/super-admin/pricing`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to create pricing plan");
+  return response.json();
+}
+
+export async function updateSuperAdminPricing(
+  pricingId: string,
+  data: {
+    name: string;
+    description?: string;
+    price?: number;
+    currency?: string;
+    billingPeriod: string;
+    features?: string[];
+  }
+) {
+  const response = await fetch(`${API_BASE}/super-admin/pricing/${pricingId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to update pricing plan");
+  return response.json();
+}
+
+export async function deleteSuperAdminPricing(pricingId: string) {
+  const response = await fetch(`${API_BASE}/super-admin/pricing/${pricingId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to delete pricing plan");
+  return response.json();
+}
