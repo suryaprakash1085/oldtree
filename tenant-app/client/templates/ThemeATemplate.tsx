@@ -482,7 +482,7 @@ export default function ThemeATemplate() {
             {cart.size > 0 && (
               <button onClick={() => { saveCart(tenantId, cart); navigate('/checkout'); }} className="theme-a-contact-btn">Checkout</button>
             )}
-            <button className="theme-a-contact-btn">Contact Us</button>
+            <button onClick={() => navigate('/page/contact')} className="theme-a-contact-btn">Contact Us</button>
           </div>
         </div>
       </div>
