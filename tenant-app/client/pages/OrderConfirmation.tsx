@@ -197,12 +197,6 @@ export default function OrderConfirmation() {
             </div>
 
             <div className="space-y-3">
-              <button
-                onClick={() => window.print()}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-              >
-                🖨️ Print Order
-              </button>
               <Link
                 to="/"
                 className="w-full block text-center bg-green-700 text-white py-2 rounded-lg hover:bg-green-800 transition font-medium"
