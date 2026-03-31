@@ -322,6 +322,15 @@ export async function updateClientProduct(productId: string, product: any, tenan
   return response.json();
 }
 
+export async function updateClientBillingPlan(billingPlan: string, tenantId?: string) {
+  const response = await apiFetch(buildClientAdminUrl(`/billing-plan`, tenantId), {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ billingPlan }),
+  });
+  return response.json();
+}
+
 export async function deleteClientProduct(productId: string, tenantId?: string) {
   const response = await apiFetch(buildClientAdminUrl(`/products/${productId}`, tenantId), {
     method: "DELETE",

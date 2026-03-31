@@ -1076,6 +1076,40 @@ export const updateSEOSettings: RequestHandler = async (req, res) => {
   }
 };
 
+export const updateBillingPlan: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { billingPlan } = req.body;
+
+    if (!tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant ID found in token' });
+    }
+
+    if (!billingPlan || typeof billingPlan !== 'string') {
+      return res.status(400).json({ error: 'Billing plan is required' });
+    }
+
+    const pricingResult: any = await query(
+      'SELECT id FROM pricing WHERE name = ? AND is_active = 1',
+      [billingPlan.trim()]
+    );
+
+    if (!Array.isArray(pricingResult) || pricingResult.length === 0) {
+      return res.status(400).json({ error: 'Selected billing plan is not available' });
+    }
+
+    await query(
+      'UPDATE tenants SET billing_plan = ?, updated_at = NOW() WHERE id = ?',
+      [billingPlan.trim(), tenantId]
+    );
+
+    res.json({ success: true, data: { billingPlan: billingPlan.trim() } });
+  } catch (error) {
+    console.error('Update billing plan error:', error);
+    res.status(500).json({ error: 'Failed to update billing plan' });
+  }
+};
+
 // Announcement Settings
 export const getAnnouncementSettings: RequestHandler = async (req, res) => {
   try {

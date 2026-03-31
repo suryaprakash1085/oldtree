@@ -482,6 +482,17 @@ export function createServer() {
     tenantMiddleware,
     clientAdminRoutes.updateSEOSettings,
   );
+  app.put(
+    "/api/client-admin/billing-plan",
+    authMiddleware,
+    clientAdminRoutes.updateBillingPlan,
+  );
+  app.put(
+    "/api/client-admin/:tenantId/billing-plan",
+    authMiddleware,
+    tenantMiddleware,
+    clientAdminRoutes.updateBillingPlan,
+  );
 
   // Announcement settings
   app.get(
