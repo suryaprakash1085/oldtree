@@ -155,6 +155,19 @@ export async function initializeDatabase() {
     `);
 
 
+       // Create feature categories table for super-admin management
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS feature_categories (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        categories LONGTEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_feature_category_name (name)
+      )
+    `);
+
   // Create pricing plans table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS pricing (

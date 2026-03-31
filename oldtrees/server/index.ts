@@ -363,6 +363,28 @@ export function createServer() {
     superAdminRoutes.deletePricing,
   );
 
+
+    app.get(
+    "/api/super-admin/feature-categories",
+    authMiddleware,
+    superAdminRoutes.getFeatureCategories,
+  );
+  app.post(
+    "/api/super-admin/feature-categories",
+    authMiddleware,
+    superAdminRoutes.createFeatureCategory,
+  );
+  app.put(
+    "/api/super-admin/feature-categories/:featureCategoryId",
+    authMiddleware,
+    superAdminRoutes.updateFeatureCategory,
+  );
+  app.delete(
+    "/api/super-admin/feature-categories/:featureCategoryId",
+    authMiddleware,
+    superAdminRoutes.deleteFeatureCategory,
+  );
+
   // Client Admin Routes - support both with and without tenantId in URL
   app.get(
     "/api/client-admin/dashboard",

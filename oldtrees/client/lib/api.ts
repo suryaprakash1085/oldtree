@@ -1004,3 +1004,48 @@ export async function deleteSuperAdminPricing(pricingId: string) {
   if (!response.ok) throw new Error("Failed to delete pricing plan");
   return response.json();
 }
+
+
+
+export async function getSuperAdminFeatureCategories() {
+  const response = await fetch(`${API_BASE}/super-admin/feature-categories`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to fetch feature categories");
+  return response.json();
+}
+
+export async function createSuperAdminFeatureCategory(data: {
+  name: string;
+  categories?: string[];
+}) {
+  const response = await apiFetch(`${API_BASE}/super-admin/feature-categories`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function updateSuperAdminFeatureCategory(
+  featureCategoryId: string,
+  data: {
+    name: string;
+    categories?: string[];
+  }
+) {
+  const response = await apiFetch(`${API_BASE}/super-admin/feature-categories/${featureCategoryId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return response.json();
+}
+
+export async function deleteSuperAdminFeatureCategory(featureCategoryId: string) {
+  const response = await apiFetch(`${API_BASE}/super-admin/feature-categories/${featureCategoryId}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  return response.json();
+}
