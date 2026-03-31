@@ -1022,8 +1022,8 @@ export default function ClientAdminDashboard() {
         editingProductId
           ? "Failed to update product"
           : error instanceof Error
-          ? error.message
-          : "Failed to create product",
+            ? error.message
+            : "Failed to create product",
       );
     }
   };
@@ -1064,8 +1064,8 @@ export default function ClientAdminDashboard() {
         editingCategoryId
           ? "Failed to update category"
           : err instanceof Error
-          ? err.message
-          : "Failed to create category",
+            ? err.message
+            : "Failed to create category",
       );
     }
   };
@@ -2756,9 +2756,19 @@ export default function ClientAdminDashboard() {
                       </h4>
                       <div className="bg-slate-50 p-4 rounded-lg">
                         <p className="text-slate-900">
-                          {typeof selectedOrder.shipping_address === "string"
-                            ? selectedOrder.shipping_address
-                            : selectedOrder.shipping_address.address}
+                          {(() => {
+                            try {
+                              const addr =
+                                typeof selectedOrder.shipping_address ===
+                                "string"
+                                  ? JSON.parse(selectedOrder.shipping_address)
+                                  : selectedOrder.shipping_address;
+
+                              return addr.address;
+                            } catch (e) {
+                              return selectedOrder.shipping_address;
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>
