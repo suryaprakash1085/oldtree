@@ -29,6 +29,8 @@ import {
   Phone,
   CreditCard,
   Mail,
+  Upload,
+  Download,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -49,8 +51,15 @@ import {
   getClientCustomers,
   getClientDiscounts,
   createClientDiscount,
+<<<<<<< HEAD
   getSuperAdminPricing,
   updateClientBillingPlan,
+=======
+  updateClientCustomer,
+  deleteClientCustomer,
+  updateClientDiscount,
+  deleteClientDiscount,
+>>>>>>> 68545fc80890cc16908e6e8c8ae6fd9d46493479
   getBusinessDetails,
   updateBusinessDetails,
   getSEOSettings,
@@ -91,6 +100,7 @@ import {
 import UpgradePlanModal from "@/components/ui/upgrade-plan-modal";
 import { Toaster, toast } from "sonner";
 import { useTenant } from "@/hooks/use-tenant";
+import ExcelJS from "exceljs";
 
 type TabType =
   | "dashboard"
@@ -135,7 +145,17 @@ export default function ClientAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState<{
+    total: number;
+    completed: number;
+    errors: string[];
+  }>({ total: 0, completed: 0, errors: [] });
   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -172,6 +192,15 @@ export default function ClientAdminDashboard() {
     maxUses: "",
     validFrom: "",
     validUntil: "",
+  });
+
+  const [customerForm, setCustomerForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    city: "",
+    country: "",
   });
 
   const [staffForm, setStaffForm] = useState({
@@ -1092,6 +1121,233 @@ export default function ClientAdminDashboard() {
     }
   };
 
+  const handleBulkUpload = async () => {
+    if (!bulkUploadFile) {
+      return toast.error("No file selected");
+    }
+
+    try {
+      setBulkUploadProgress({
+        total: 0,
+        completed: 0,
+        errors: [],
+      });
+
+      // Read the file
+      const fileContent = await bulkUploadFile.text();
+      const lines = fileContent.split("\n").filter((line) => line.trim());
+
+      if (lines.length < 2) {
+        return toast.error("File must contain at least a header and one data row");
+      }
+
+      // Parse CSV/Excel (simple CSV parsing)
+      const headers = lines[0]
+        .split(",")
+        .map((h) => h.trim().toLowerCase());
+      const rows = lines.slice(1).map((line) => {
+        const values = line.split(",").map((v) => v.trim());
+        const obj: any = {};
+        headers.forEach((header, index) => {
+          obj[header] = values[index] || "";
+        });
+        return obj;
+      });
+
+      setBulkUploadProgress({
+        total: rows.length,
+        completed: 0,
+        errors: [],
+      });
+
+      const errors: string[] = [];
+      let completed = 0;
+
+      // Process each row
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+
+        try {
+          // Validate required fields
+          if (!row.name || !row.name.trim()) {
+            errors.push(`Row ${i + 2}: Product name is required`);
+            completed++;
+            setBulkUploadProgress((prev) => ({
+              ...prev,
+              completed: prev.completed + 1,
+              errors,
+            }));
+            continue;
+          }
+
+          if (!row.sku || !row.sku.trim()) {
+            errors.push(`Row ${i + 2}: SKU is required`);
+            completed++;
+            setBulkUploadProgress((prev) => ({
+              ...prev,
+              completed: prev.completed + 1,
+              errors,
+            }));
+            continue;
+          }
+
+          const price = parseFloat(row.price);
+          if (isNaN(price) || price <= 0) {
+            errors.push(`Row ${i + 2}: Valid price is required`);
+            completed++;
+            setBulkUploadProgress((prev) => ({
+              ...prev,
+              completed: prev.completed + 1,
+              errors,
+            }));
+            continue;
+          }
+
+          const costPrice = row.costprice ? parseFloat(row.costprice) : undefined;
+          const stockQuantity = row.stockquantity
+            ? parseInt(row.stockquantity)
+            : 0;
+
+          // Create product
+          await createClientProduct(
+            {
+              name: row.name.trim(),
+              description: row.description || "",
+              sku: row.sku.trim(),
+              price,
+              costPrice,
+              category: row.category || "",
+              stockQuantity,
+              imageUrl: row.imageurl || "",
+            },
+            tenantId || undefined,
+          );
+
+          completed++;
+          setBulkUploadProgress((prev) => ({
+            ...prev,
+            completed: prev.completed + 1,
+          }));
+        } catch (error) {
+          errors.push(
+            `Row ${i + 2}: ${error instanceof Error ? error.message : "Failed to create product"}`,
+          );
+          completed++;
+          setBulkUploadProgress((prev) => ({
+            ...prev,
+            completed: prev.completed + 1,
+            errors,
+          }));
+        }
+      }
+
+      await fetchTabData("products", true);
+
+      if (errors.length === 0) {
+        toast.success(`Successfully uploaded ${completed} products`);
+        setShowBulkUploadModal(false);
+        setBulkUploadFile(null);
+        setBulkUploadProgress({
+          total: 0,
+          completed: 0,
+          errors: [],
+        });
+      } else {
+        toast.error(`Uploaded ${completed} products with ${errors.length} errors`);
+      }
+
+      try {
+        const dash = await getClientAdminDashboard();
+        setDashboardData(dash.data);
+      } catch (e) {}
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to process file",
+      );
+      setBulkUploadProgress({
+        total: 0,
+        completed: 0,
+        errors: [],
+      });
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      // Create a new workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Products");
+
+      // Define columns
+      const columns = [
+        { header: "name", key: "name", width: 20 },
+        { header: "sku", key: "sku", width: 15 },
+        { header: "price", key: "price", width: 12 },
+        { header: "costPrice", key: "costPrice", width: 12 },
+        { header: "category", key: "category", width: 15 },
+        { header: "stockQuantity", key: "stockQuantity", width: 15 },
+        { header: "description", key: "description", width: 30 },
+        { header: "imageUrl", key: "imageUrl", width: 30 },
+      ];
+
+      worksheet.columns = columns;
+
+      // Style header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4B5563" },
+      };
+      headerRow.alignment = { horizontal: "center", vertical: "center" };
+
+      // Add sample row
+      worksheet.addRow({
+        name: "Sample Product",
+        sku: "SKU-001",
+        price: 99.99,
+        costPrice: 50.0,
+        category: "Electronics",
+        stockQuantity: 10,
+        description: "This is a sample product description",
+        imageUrl: "https://example.com/image.jpg",
+      });
+
+      // Style data rows
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+          row.alignment = { horizontal: "left", vertical: "center" };
+          row.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF5F5F5" },
+          };
+        }
+      });
+
+      // Generate Excel file and trigger download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "products_template.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Template downloaded successfully");
+    } catch (error) {
+      console.error("Error generating template:", error);
+      toast.error("Failed to generate template");
+    }
+  };
+
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1345,8 +1601,16 @@ export default function ClientAdminDashboard() {
         validUntil: discountForm.validUntil || null,
       };
 
-      await createClientDiscount(discountData, tenantId || undefined);
-      toast.success("Discount created successfully");
+      // Check if we're editing or creating
+      if (editingDiscountId) {
+        await updateClientDiscount(editingDiscountId, discountData, tenantId || undefined);
+        toast.success("Discount updated successfully");
+        setEditingDiscountId(null);
+      } else {
+        await createClientDiscount(discountData, tenantId || undefined);
+        toast.success("Discount created successfully");
+      }
+
       setDiscountForm({
         code: "",
         description: "",
@@ -1360,11 +1624,105 @@ export default function ClientAdminDashboard() {
       setShowDiscountModal(false);
       await fetchTabData("discounts", true);
     } catch (error) {
+<<<<<<< HEAD
       const errorMsg = handlePlanLimitError(error);
       if (errorMsg) {
         toast.error(errorMsg);
       }
       console.error("Discount creation error:", error);
+=======
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to save discount";
+      toast.error(errorMsg);
+      console.error("Discount save error:", error);
+    }
+  };
+
+  const handleEditCustomer = (customer: any) => {
+    setCustomerForm({
+      first_name: customer.first_name || "",
+      last_name: customer.last_name || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      city: customer.city || "",
+      country: customer.country || "",
+    });
+    setEditingCustomerId(customer.id);
+    setShowCustomerModal(true);
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!customerForm.email || !customerForm.email.trim()) {
+        return toast.error("Email is required");
+      }
+
+      await updateClientCustomer(editingCustomerId!, customerForm, tenantId || undefined);
+      toast.success("Customer updated successfully");
+      setShowCustomerModal(false);
+      setEditingCustomerId(null);
+      setCustomerForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        city: "",
+        country: "",
+      });
+      await fetchTabData("customers", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to update customer";
+      toast.error(errorMsg);
+      console.error("Customer update error:", error);
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    if (!window.confirm("Are you sure you want to delete this customer?")) {
+      return;
+    }
+
+    try {
+      await deleteClientCustomer(customerId, tenantId || undefined);
+      toast.success("Customer deleted successfully");
+      await fetchTabData("customers", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to delete customer";
+      toast.error(errorMsg);
+      console.error("Customer deletion error:", error);
+    }
+  };
+
+  const handleEditDiscount = (discount: any) => {
+    setDiscountForm({
+      code: discount.code || "",
+      description: discount.description || "",
+      discountType: discount.discount_type || "percentage",
+      discountValue: discount.discount_value?.toString() || "",
+      minOrderAmount: discount.min_order_amount?.toString() || "",
+      maxUses: discount.max_uses?.toString() || "",
+      validFrom: discount.valid_from || "",
+      validUntil: discount.valid_until || "",
+    });
+    setEditingDiscountId(discount.id);
+    setShowDiscountModal(true);
+  };
+
+  const handleDeleteDiscount = async (discountId: string) => {
+    if (!window.confirm("Are you sure you want to delete this discount?")) {
+      return;
+    }
+
+    try {
+      await deleteClientDiscount(discountId, tenantId || undefined);
+      toast.success("Discount deleted successfully");
+      await fetchTabData("discounts", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to delete discount";
+      toast.error(errorMsg);
+      console.error("Discount deletion error:", error);
+>>>>>>> 68545fc80890cc16908e6e8c8ae6fd9d46493479
     }
   };
 
@@ -2077,15 +2435,51 @@ export default function ClientAdminDashboard() {
                 <h2 className="text-2xl font-bold text-slate-900">
                   Products ({products.length})
                 </h2>
-                <Button
-                  onClick={() => {
-                    setShowProductModal(true);
-                  }}
-                  className="group"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Product
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleDownloadTemplate()}
+                    variant="outline"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Template
+                  </Button>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setBulkUploadFile(file);
+                          setShowBulkUploadModal(true);
+                        }
+                      }}
+                      className="hidden"
+                      id="excel-upload"
+                    />
+                    <label htmlFor="excel-upload">
+                      <Button
+                        onClick={() =>
+                          document.getElementById("excel-upload")?.click()
+                        }
+                        variant="outline"
+                        className="cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Excel Upload
+                      </Button>
+                    </label>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setShowProductModal(true);
+                    }}
+                    className="group"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Product
+                  </Button>
+                </div>
               </div>
 
               {showProductModal && (
@@ -2313,6 +2707,108 @@ export default function ClientAdminDashboard() {
                         </Button>
                       </div>
                     </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Bulk Upload Modal */}
+              {showBulkUploadModal && bulkUploadFile && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg max-w-2xl w-full">
+                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                      <h3 className="text-xl font-bold text-slate-900">
+                        Bulk Upload Products
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowBulkUploadModal(false);
+                          setBulkUploadFile(null);
+                          setBulkUploadProgress({
+                            total: 0,
+                            completed: 0,
+                            errors: [],
+                          });
+                        }}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <p className="text-sm text-slate-600 mb-2">
+                          File: <span className="font-semibold">{bulkUploadFile.name}</span>
+                        </p>
+                        <p className="text-sm text-slate-500 mb-4">
+                          Please ensure your file has the following columns: name,
+                          sku, price, costPrice (optional), category (optional),
+                          stockQuantity (optional), description (optional)
+                        </p>
+                      </div>
+
+                      {bulkUploadProgress.total > 0 && (
+                        <div>
+                          <div className="flex justify-between mb-2">
+                            <span className="text-sm font-medium text-slate-900">
+                              Upload Progress
+                            </span>
+                            <span className="text-sm text-slate-600">
+                              {bulkUploadProgress.completed} / {bulkUploadProgress.total}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all"
+                              style={{
+                                width: `${(bulkUploadProgress.completed / bulkUploadProgress.total) * 100}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {bulkUploadProgress.errors.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-red-900 mb-2">
+                            Errors:
+                          </h4>
+                          <ul className="text-sm text-red-800 space-y-1">
+                            {bulkUploadProgress.errors.map((error, idx) => (
+                              <li key={idx}>• {error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => handleBulkUpload()}
+                          disabled={bulkUploadProgress.total > 0}
+                          className="flex-1"
+                        >
+                          {bulkUploadProgress.total > 0
+                            ? "Uploading..."
+                            : "Start Upload"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowBulkUploadModal(false);
+                            setBulkUploadFile(null);
+                            setBulkUploadProgress({
+                              total: 0,
+                              completed: 0,
+                              errors: [],
+                            });
+                          }}
+                          className="flex-1"
+                          disabled={bulkUploadProgress.total > 0}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3074,6 +3570,9 @@ export default function ClientAdminDashboard() {
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Total Spent
                         </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3096,6 +3595,23 @@ export default function ClientAdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-slate-900 font-medium">
                             ₹{customer.total_spent?.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-slate-900 font-medium">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditCustomer(customer)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteCustomer(customer.id)}
+                              className="ml-2"
+                            >
+                              Delete
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -3132,10 +3648,23 @@ export default function ClientAdminDashboard() {
                   <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between p-6 border-b border-slate-200">
                       <h3 className="text-xl font-bold text-slate-900">
-                        Create Discount Code
+                        {editingDiscountId ? "Edit Discount Code" : "Create Discount Code"}
                       </h3>
                       <button
-                        onClick={() => setShowDiscountModal(false)}
+                        onClick={() => {
+                          setShowDiscountModal(false);
+                          setEditingDiscountId(null);
+                          setDiscountForm({
+                            code: "",
+                            description: "",
+                            discountType: "percentage",
+                            discountValue: "",
+                            minOrderAmount: "",
+                            maxUses: "",
+                            validFrom: "",
+                            validUntil: "",
+                          });
+                        }}
                         className="text-slate-400 hover:text-slate-600"
                       >
                         <X className="w-6 h-6" />
@@ -3285,12 +3814,25 @@ export default function ClientAdminDashboard() {
 
                       <div className="flex gap-3 pt-4">
                         <Button type="submit" className="flex-1">
-                          Create Discount
+                          {editingDiscountId ? "Update Discount" : "Create Discount"}
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setShowDiscountModal(false)}
+                          onClick={() => {
+                            setShowDiscountModal(false);
+                            setEditingDiscountId(null);
+                            setDiscountForm({
+                              code: "",
+                              description: "",
+                              discountType: "percentage",
+                              discountValue: "",
+                              minOrderAmount: "",
+                              maxUses: "",
+                              validFrom: "",
+                              validUntil: "",
+                            });
+                          }}
                           className="flex-1"
                         >
                           Cancel
@@ -3320,6 +3862,9 @@ export default function ClientAdminDashboard() {
                         </th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Usage
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -3355,6 +3900,24 @@ export default function ClientAdminDashboard() {
                             {discount.used_count || 0} /{" "}
                             {discount.max_uses || "∞"}
                           </td>
+                          <td className="px-6 py-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditDiscount(discount)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm" 
+                              onClick={() => handleDeleteDiscount(discount.id)}
+                              className="ml-2"
+                            >
+                                Delete
+                                </Button>
+                          </td>
+                          
                         </tr>
                       ))}
                     </tbody>

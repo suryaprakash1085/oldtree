@@ -905,6 +905,180 @@ export const createDiscount: RequestHandler = async (req, res) => {
   }
 };
 
+// Update Customer
+export const updateCustomer: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      city,
+      country,
+    } = req.body;
+
+    if (!id || !email) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Verify customer belongs to tenant
+    const customerResult = await query(
+      "SELECT id FROM customers WHERE id = ? AND tenant_id = ?",
+      [id, tenantId]
+    );
+
+    if (!Array.isArray(customerResult) || customerResult.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    await query(
+      `UPDATE customers
+       SET first_name = ?, last_name = ?, email = ?, phone = ?, city = ?, country = ?
+       WHERE id = ? AND tenant_id = ?`,
+      [first_name || null, last_name || null, email, phone || null, city || null, country || null, id, tenantId]
+    );
+
+    const updated = await query("SELECT * FROM customers WHERE id = ?", [id]);
+
+    res.json({
+      success: true,
+      data: Array.isArray(updated) ? updated[0] : null,
+    });
+  } catch (error) {
+    console.error("Update customer error:", error);
+    res.status(500).json({ error: "Failed to update customer" });
+  }
+};
+
+// Delete Customer
+export const deleteCustomer: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Missing customer ID" });
+    }
+
+    // Verify customer belongs to tenant
+    const customerResult = await query(
+      "SELECT id FROM customers WHERE id = ? AND tenant_id = ?",
+      [id, tenantId]
+    );
+
+    if (!Array.isArray(customerResult) || customerResult.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    await query("DELETE FROM customers WHERE id = ? AND tenant_id = ?", [id, tenantId]);
+
+    res.json({
+      success: true,
+      message: "Customer deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete customer error:", error);
+    res.status(500).json({ error: "Failed to delete customer" });
+  }
+};
+
+// Update Discount
+export const updateDiscount: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+    const {
+      code,
+      description,
+      discountType,
+      discountValue,
+      minOrderAmount,
+      maxUses,
+      validFrom,
+      validUntil,
+      isActive,
+    } = req.body;
+
+    if (!id || !code || !discountType || !discountValue) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Verify discount belongs to tenant
+    const discountResult = await query(
+      "SELECT id FROM discounts WHERE id = ? AND tenant_id = ?",
+      [id, tenantId]
+    );
+
+    if (!Array.isArray(discountResult) || discountResult.length === 0) {
+      return res.status(404).json({ error: "Discount not found" });
+    }
+
+    await query(
+      `UPDATE discounts
+       SET code = ?, description = ?, discount_type = ?, discount_value = ?,
+           min_order_amount = ?, max_uses = ?, valid_from = ?, valid_until = ?, is_active = ?
+       WHERE id = ? AND tenant_id = ?`,
+      [
+        code,
+        description || null,
+        discountType,
+        discountValue,
+        minOrderAmount || null,
+        maxUses || null,
+        validFrom || null,
+        validUntil || null,
+        isActive !== undefined ? isActive : 1,
+        id,
+        tenantId,
+      ]
+    );
+
+    const updated = await query("SELECT * FROM discounts WHERE id = ?", [id]);
+
+    res.json({
+      success: true,
+      data: Array.isArray(updated) ? updated[0] : null,
+    });
+  } catch (error) {
+    console.error("Update discount error:", error);
+    res.status(500).json({ error: "Failed to update discount" });
+  }
+};
+
+// Delete Discount
+export const deleteDiscount: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Missing discount ID" });
+    }
+
+    // Verify discount belongs to tenant
+    const discountResult = await query(
+      "SELECT id FROM discounts WHERE id = ? AND tenant_id = ?",
+      [id, tenantId]
+    );
+
+    if (!Array.isArray(discountResult) || discountResult.length === 0) {
+      return res.status(404).json({ error: "Discount not found" });
+    }
+
+    await query("DELETE FROM discounts WHERE id = ? AND tenant_id = ?", [id, tenantId]);
+
+    res.json({
+      success: true,
+      message: "Discount deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete discount error:", error);
+    res.status(500).json({ error: "Failed to delete discount" });
+  }
+};
+
 export const getTenantThemes: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;

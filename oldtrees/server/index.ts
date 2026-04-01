@@ -615,6 +615,56 @@ export function createServer() {
     clientAdminRoutes.createDiscount,
   );
 
+  // Customer Update/Delete
+  app.put(
+    "/api/client-admin/customers/:id",
+    authMiddleware,
+    clientAdminRoutes.updateCustomer,
+  );
+  app.put(
+    "/api/client-admin/:tenantId/customers/:id",
+    authMiddleware,
+    tenantMiddleware,
+    clientAdminRoutes.updateCustomer,
+  );
+
+  app.delete(
+    "/api/client-admin/customers/:id",
+    authMiddleware,
+    clientAdminRoutes.deleteCustomer,
+  );
+  app.delete(
+    "/api/client-admin/:tenantId/customers/:id",
+    authMiddleware,
+    tenantMiddleware,
+    clientAdminRoutes.deleteCustomer,
+  );
+
+  // Discount Update/Delete
+  app.put(
+    "/api/client-admin/discounts/:id",
+    authMiddleware,
+    clientAdminRoutes.updateDiscount,
+  );
+  app.put(
+    "/api/client-admin/:tenantId/discounts/:id",
+    authMiddleware,
+    tenantMiddleware,
+    clientAdminRoutes.updateDiscount,
+  );
+
+  app.delete(
+    "/api/client-admin/discounts/:id",
+    authMiddleware,
+    clientAdminRoutes.deleteDiscount,
+  );
+  app.delete(
+    "/api/client-admin/:tenantId/discounts/:id",
+    authMiddleware,
+    tenantMiddleware,
+    clientAdminRoutes.deleteDiscount,
+  );
+
   app.get(
     "/api/client-admin/themes",
     authMiddleware,
