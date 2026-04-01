@@ -51,15 +51,10 @@ import {
   getClientCustomers,
   getClientDiscounts,
   createClientDiscount,
-<<<<<<< HEAD
-  getSuperAdminPricing,
-  updateClientBillingPlan,
-=======
   updateClientCustomer,
   deleteClientCustomer,
   updateClientDiscount,
   deleteClientDiscount,
->>>>>>> 68545fc80890cc16908e6e8c8ae6fd9d46493479
   getBusinessDetails,
   updateBusinessDetails,
   getSEOSettings,
@@ -97,7 +92,6 @@ import {
   getPaymentInfo,
   updatePaymentInfo,
 } from "@/lib/api";
-import UpgradePlanModal from "@/components/ui/upgrade-plan-modal";
 import { Toaster, toast } from "sonner";
 import { useTenant } from "@/hooks/use-tenant";
 import ExcelJS from "exceljs";
@@ -245,11 +239,6 @@ export default function ClientAdminDashboard() {
     useState<string>("product-grid");
   const [announcementMessage, setAnnouncementMessage] = useState<string>("");
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [billingPlans, setBillingPlans] = useState<any[]>([]);
-  const [selectedBillingPlan, setSelectedBillingPlan] = useState<string>("");
-  const [showUpgradePlanModal, setShowUpgradePlanModal] = useState(false);
-  const [upgradePromptMessage, setUpgradePromptMessage] = useState<string>("");
-  const [upgradingBillingPlan, setUpgradingBillingPlan] = useState(false);
 
   // Pages & Blog
   const [pages, setPages] = useState<any[]>([]);
@@ -352,57 +341,6 @@ export default function ClientAdminDashboard() {
   });
 
   const [tabLoading, setTabLoading] = useState(false);
-
-  const loadBillingPlans = async () => {
-    try {
-      const pricingData = await getSuperAdminPricing();
-      const plans = pricingData.data || [];
-      setBillingPlans(plans);
-      if (plans.length && !selectedBillingPlan) {
-        setSelectedBillingPlan(plans[0].name);
-      }
-    } catch (error) {
-      console.error("Failed to load billing plans:", error);
-    }
-  };
-
-  const openUpgradePlanModal = (message: string) => {
-    setUpgradePromptMessage(message);
-    setShowUpgradePlanModal(true);
-    if (!billingPlans.length) {
-      loadBillingPlans();
-    }
-  };
-
-  const updatePlanForTenant = async () => {
-    if (!tenantId || !selectedBillingPlan) {
-      toast.error("Please select a billing plan to continue.");
-      return;
-    }
-
-    setUpgradingBillingPlan(true);
-    try {
-      await updateClientBillingPlan(selectedBillingPlan, tenantId);
-      toast.success("Billing plan updated successfully");
-      setShowUpgradePlanModal(false);
-      await fetchTabData("products", true);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update billing plan",
-      );
-    } finally {
-      setUpgradingBillingPlan(false);
-    }
-  };
-
-  const handlePlanLimitError = (error: any): string | null => {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
-    if (message.toLowerCase().includes("please upgrade your plan")) {
-      openUpgradePlanModal(message);
-      return null;
-    }
-    return message;
-  };
   const [loadedSections, setLoadedSections] = useState<{
     [key: string]: boolean;
   }>({});
@@ -813,10 +751,6 @@ export default function ClientAdminDashboard() {
     initialLoad();
   }, [tenantId, tenantLoading, tenantError, initialLoad]);
 
-  useEffect(() => {
-    loadBillingPlans();
-  }, []);
-
   // Update browser tab title
   useEffect(() => {
     if (businessDetails?.company_name) {
@@ -1110,14 +1044,13 @@ export default function ClientAdminDashboard() {
         setDashboardData(dash.data);
       } catch (e) {}
     } catch (error) {
-      const message = handlePlanLimitError(error);
-      if (message) {
-        toast.error(
-          editingProductId
-            ? "Failed to update product"
-            : message,
-        );
-      }
+      toast.error(
+        editingProductId
+          ? "Failed to update product"
+          : error instanceof Error
+            ? error.message
+            : "Failed to create product",
+      );
     }
   };
 
@@ -1380,14 +1313,13 @@ export default function ClientAdminDashboard() {
       setShowCategoryModal(false);
       await fetchTabData("categories", true);
     } catch (err) {
-      const message = handlePlanLimitError(err);
-      if (message) {
-        toast.error(
-          editingCategoryId
-            ? "Failed to update category"
-            : message,
-        );
-      }
+      toast.error(
+        editingCategoryId
+          ? "Failed to update category"
+          : err instanceof Error
+            ? err.message
+            : "Failed to create category",
+      );
     }
   };
 
@@ -1624,13 +1556,6 @@ export default function ClientAdminDashboard() {
       setShowDiscountModal(false);
       await fetchTabData("discounts", true);
     } catch (error) {
-<<<<<<< HEAD
-      const errorMsg = handlePlanLimitError(error);
-      if (errorMsg) {
-        toast.error(errorMsg);
-      }
-      console.error("Discount creation error:", error);
-=======
       const errorMsg =
         error instanceof Error ? error.message : "Failed to save discount";
       toast.error(errorMsg);
@@ -1722,7 +1647,6 @@ export default function ClientAdminDashboard() {
       const errorMsg = error instanceof Error ? error.message : "Failed to delete discount";
       toast.error(errorMsg);
       console.error("Discount deletion error:", error);
->>>>>>> 68545fc80890cc16908e6e8c8ae6fd9d46493479
     }
   };
 
@@ -2072,10 +1996,9 @@ export default function ClientAdminDashboard() {
       setShowPageModal(false);
       await fetchTabData("pages", true);
     } catch (error) {
-      const errorMsg = handlePlanLimitError(error);
-      if (errorMsg) {
-        toast.error(errorMsg);
-      }
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to save page";
+      toast.error(errorMsg);
       console.error("Page save error:", error);
     }
   };
@@ -2143,10 +2066,13 @@ export default function ClientAdminDashboard() {
       setShowPostModal(false);
       await fetchTabData("blog", true);
     } catch (error) {
-      const errorMsg = handlePlanLimitError(error);
-      if (errorMsg) {
-        toast.error(errorMsg);
-      }
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : editingPostId
+            ? "Failed to update blog post"
+            : "Failed to create blog post";
+      toast.error(errorMsg);
       console.error("Blog post save error:", error);
     }
   };
@@ -2212,16 +2138,6 @@ export default function ClientAdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-100">
       <Toaster position="top-right" />
-      <UpgradePlanModal
-        open={showUpgradePlanModal}
-        message={upgradePromptMessage}
-        plans={billingPlans}
-        selectedPlan={selectedBillingPlan}
-        onSelectPlan={setSelectedBillingPlan}
-        onClose={() => setShowUpgradePlanModal(false)}
-        onConfirm={updatePlanForTenant}
-        submitting={upgradingBillingPlan}
-      />
 
       {/* Token Error Alert */}
       {tokenError && (
