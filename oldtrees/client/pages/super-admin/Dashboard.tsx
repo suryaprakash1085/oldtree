@@ -16,7 +16,8 @@ import {
   Trash2,
   Pause,
   Play,
-  Tag,
+  IndianRupee,
+  Tag
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -24,6 +25,11 @@ import {
   getSuperAdminClients,
   getSuperAdminBilling,
   getSuperAdminThemes,
+  getSuperAdminPricing,
+  getSuperAdminFeatureCategories,
+  createSuperAdminFeatureCategory,
+  updateSuperAdminFeatureCategory,
+  deleteSuperAdminFeatureCategory,
   getAuthToken,
   clearAuthToken,
   getCurrentUser,
@@ -32,14 +38,13 @@ import {
   suspendSuperAdminClient,
   reactivateSuperAdminClient,
   deleteSuperAdminClient,
-  getSuperAdminPricing,
   createSuperAdminPricing,
   updateSuperAdminPricing,
   deleteSuperAdminPricing,
 } from "@/lib/api";
 import { Toaster, toast } from "sonner";
 
-type TabType = "dashboard" | "clients" | "billing" | "analytics" | "themes" | "pricing" |"settings";
+type TabType = "dashboard" | "clients" | "billing" | "analytics" | "themes" | "pricing" | "featuresCategories" | "settings";
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -49,19 +54,17 @@ export default function SuperAdminDashboard() {
   const [clients, setClients] = useState<any[]>([]);
   const [billing, setBilling] = useState<any[]>([]);
   const [themes, setThemes] = useState<any[]>([]);
-    const [pricing, setPricing] = useState<any[]>([]);
+  const [pricing, setPricing] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClientModal, setShowClientModal] = useState(false);
- const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
 
-
- const getDefaultBillingPlan = () => {
+  const getDefaultBillingPlan = () => {
     if (pricing && pricing.length > 0) {
       return pricing[0].name || "starter";
     }
     return "starter";
   };
-
 
   const [clientForm, setClientForm] = useState({
     companyName: "",
@@ -72,8 +75,7 @@ export default function SuperAdminDashboard() {
   });
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
 
-
- const [pricingForm, setPricingForm] = useState({
+  const [pricingForm, setPricingForm] = useState({
     name: "",
     description: "",
     price: "",
@@ -82,9 +84,15 @@ export default function SuperAdminDashboard() {
     features: "",
   });
   const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
+  const [selectedFeatureValues, setSelectedFeatureValues] = useState<string[]>([]);
 
-
-
+  const [featuresCategories, setFeaturesCategories] = useState<any[]>([]);
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [editingFeatureCategoryId, setEditingFeatureCategoryId] = useState<string | null>(null);
+  const [featureCategoryForm, setFeatureCategoryForm] = useState({
+    name: "",
+    categories: "",
+  });
 
   useEffect(() => {
     const token = getAuthToken();
@@ -103,18 +111,20 @@ export default function SuperAdminDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, clientsData, billingData, themesData,pricingData] = await Promise.all([
+      const [analyticsData, clientsData, billingData, themesData, pricingData, featureCategoriesData] = await Promise.all([
         getSuperAdminAnalytics(),
         getSuperAdminClients(),
         getSuperAdminBilling(),
         getSuperAdminThemes(),
         getSuperAdminPricing(),
+        getSuperAdminFeatureCategories(),
       ]);
       setAnalytics(analyticsData.data);
       setClients(clientsData.data || []);
       setBilling(billingData.data || []);
       setThemes(themesData.data || []);
       setPricing(pricingData.data || []);
+      setFeaturesCategories(featureCategoriesData.data || []);
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("Failed to load dashboard data");
@@ -191,13 +201,66 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const normalize = (str: string) => str.trim().toLowerCase();
+
+const getCategoryKey = (feature: string) => {
+  const words = feature.trim().toLowerCase().split(" ");
+  return words[words.length - 1]; // last word → orders, categories, etc.
+};
+
+const cleanFeatures = (features: string[]) => {
+  const map = new Map<string, string>();
+
+  features.forEach((feature) => {
+    const key = getCategoryKey(feature);
+    map.set(key, feature); // ✅ last value overrides previous
+  });
+
+  return Array.from(map.values());
+};
+
+const uniqueByCategory = (features: string[]) => {
+  const map = new Map<string, string>();
+
+  features.forEach((f) => {
+    const key = getCategoryKey(f);
+    map.set(key, f); // last one wins ✅
+  });
+
+  return Array.from(map.values());
+};
+
+
+const getLatestUniqueFeatures = (features: string[]) => {
+  const map = new Map<string, string>();
+
+  const getCategoryKey = (feature: string) => {
+    const words = feature.trim().toLowerCase().split(" ");
+    return words[words.length - 1];
+  };
+
+  features.forEach((feature) => {
+    const key = getCategoryKey(feature);
+    map.set(key, feature); // last value overrides
+  });
+
+  return Array.from(map.values());
+};
+
+
   const handleCreatePricing = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const features = pricingForm.features
-        .split("\n")
-        .map((f) => f.trim())
-        .filter((f) => f.length > 0);
+      const features = featuresCategories.length > 0
+        ? uniqueByCategory(
+            selectedFeatureValues
+              .map((f) => f.trim())
+              .filter(Boolean)
+          )
+        : pricingForm.features
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean);
 
       const payload = {
         name: pricingForm.name,
@@ -246,8 +309,15 @@ export default function SuperAdminDashboard() {
       price: plan.price ? plan.price.toString() : "",
       currency: plan.currency || "₹",
       billingPeriod: plan.billing_period,
-      features: Array.isArray(plan.features) ? plan.features.join("\n") : "",
+      features: Array.isArray(plan.features)
+        ? plan.features.map((feature: string) => feature.trim()).join("\n")
+        : "",
     });
+    setSelectedFeatureValues(
+      Array.isArray(plan.features)
+        ? plan.features.map((feature: string) => feature.trim())
+        : []
+    );
     setShowPricingModal(true);
   };
 
@@ -266,6 +336,69 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleSaveFeatureCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!featureCategoryForm.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+
+    const categories = featureCategoryForm.categories
+      .split("\n")
+      .map((category) => category.trim())
+      .filter((category) => category.length > 0);
+
+    try {
+      const payload = {
+        name: featureCategoryForm.name.trim(),
+        categories,
+      };
+
+      if (editingFeatureCategoryId) {
+        await updateSuperAdminFeatureCategory(editingFeatureCategoryId, payload);
+        toast.success("Feature category updated");
+      } else {
+        await createSuperAdminFeatureCategory(payload);
+        toast.success("Feature category created");
+      }
+
+      setShowFeaturesModal(false);
+      setEditingFeatureCategoryId(null);
+      setFeatureCategoryForm({ name: "", categories: "" });
+      loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save feature category");
+    }
+  };
+
+  const handleStartEditFeatureCategory = (item: any) => {
+    setEditingFeatureCategoryId(item.id);
+    setFeatureCategoryForm({
+      name: item.name,
+      categories: Array.isArray(item.categories) ? item.categories.join("\n") : "",
+    });
+    setShowFeaturesModal(true);
+  };
+
+  const handleDeleteFeatureCategory = async (itemId: string) => {
+    if (!confirm("Are you sure you want to delete this feature category?")) {
+      return;
+    }
+    try {
+      await deleteSuperAdminFeatureCategory(itemId);
+      toast.success("Feature category deleted");
+      loadData();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete feature category");
+    }
+  };
+
+  const handleOpenNewFeatureCategory = () => {
+    setEditingFeatureCategoryId(null);
+    setFeatureCategoryForm({ name: "", categories: "" });
+    setShowFeaturesModal(true);
+  };
 
   const handleLogout = () => {
     clearAuthToken();
@@ -288,7 +421,8 @@ export default function SuperAdminDashboard() {
     { id: "clients", icon: Users, label: "Clients" },
     { id: "billing", icon: DollarSign, label: "Billing" },
     { id: "analytics", icon: TrendingUp, label: "Analytics" },
-     { id: "pricing", icon: Tag, label: "Pricing" },
+    { id: "pricing", icon: Tag, label: "Pricing" },
+    { id: "featuresCategories", icon: ArrowRight, label: "Features Categories" },
     { id: "settings", icon: Settings, label: "Settings" },
   ];
 
@@ -497,7 +631,17 @@ export default function SuperAdminDashboard() {
                   Clients ({clients.length})
                 </h2>
                 <Button
-                  onClick={() => setShowClientModal(true)}
+                  onClick={() => {
+                    setShowClientModal(true);
+                    setEditingClientId(null);
+                    setClientForm({
+                      companyName: "",
+                      domain: "",
+                      contactEmail: "",
+                      contactPhone: "",
+                      billingPlan: getDefaultBillingPlan(),
+                    });
+                  }}
                   className="group"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -505,150 +649,7 @@ export default function SuperAdminDashboard() {
                 </Button>
               </div>
 
-              {/* {showClientModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                      <h3 className="text-xl font-bold text-slate-900">
-                        {editingClientId ? "Edit Client" : "Add New Client"}
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setShowClientModal(false);
-                          setEditingClientId(null);
-                          setClientForm({
-                            companyName: "",
-                            domain: "",
-                            contactEmail: "",
-                            contactPhone: "",
-                            billingPlan: "starter",
-                          });
-                        }}
-                        className="text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-6 h-6" />
-                      </button>
-                    </div>
-
-                    <form
-                      onSubmit={handleCreateClient}
-                      className="p-6 space-y-4"
-                    >
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-900 mb-1">
-                            Company Name *
-                          </label>
-                          <Input
-                            value={clientForm.companyName}
-                            onChange={(e) =>
-                              setClientForm({
-                                ...clientForm,
-                                companyName: e.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-900 mb-1">
-                            Domain
-                          </label>
-                          <Input
-                            value={clientForm.domain}
-                            onChange={(e) =>
-                              setClientForm({
-                                ...clientForm,
-                                domain: e.target.value,
-                              })
-                            }
-                            placeholder="store.example.com"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-900 mb-1">
-                            Contact Email *
-                          </label>
-                          <Input
-                            type="email"
-                            value={clientForm.contactEmail}
-                            onChange={(e) =>
-                              setClientForm({
-                                ...clientForm,
-                                contactEmail: e.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-900 mb-1">
-                            Contact Phone
-                          </label>
-                          <Input
-                            value={clientForm.contactPhone}
-                            onChange={(e) =>
-                              setClientForm({
-                                ...clientForm,
-                                contactPhone: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-900 mb-1">
-                          Billing Plan
-                        </label>
-                        <select
-                          value={clientForm.billingPlan}
-                          onChange={(e) =>
-                            setClientForm({
-                              ...clientForm,
-                              billingPlan: e.target.value,
-                            })
-                          }
-                          className="w-full border border-slate-300 rounded-lg p-2"
-                        >
-                          <option value="starter">Starter (₹1,200/mo)</option>
-                          <option value="growth">Growth (₹5,000/mo)</option>
-                          <option value="enterprise">Enterprise (Custom)</option>
-                        </select>
-                      </div>
-
-                      <div className="flex gap-3 pt-4">
-                        <Button type="submit" className="flex-1">
-                          {editingClientId ? "Update Client" : "Create Client"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setShowClientModal(false);
-                            setEditingClientId(null);
-                            setClientForm({
-                              companyName: "",
-                              domain: "",
-                              contactEmail: "",
-                              contactPhone: "",
-                              billingPlan: "starter",
-                            });
-                          }}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )} */}
-
-               {showClientModal && (
+              {showClientModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between p-6 border-b border-slate-200">
@@ -1070,8 +1071,7 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
-
-           {/* Pricing Tab */}
+          {/* Pricing Tab */}
           {currentTab === "pricing" && (
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -1089,6 +1089,7 @@ export default function SuperAdminDashboard() {
                       billingPeriod: "month",
                       features: "",
                     });
+                    setSelectedFeatureValues([]);
                     setShowPricingModal(true);
                   }}
                   className="gap-2"
@@ -1170,6 +1171,173 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
+          {/* Features Categories Tab */}
+          {currentTab === "featuresCategories" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    Feature Categories
+                  </h2>
+                  <p className="text-slate-600 mt-1">
+                    Manage feature category groups and their associated category values.
+                  </p>
+                </div>
+                <Button onClick={handleOpenNewFeatureCategory} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Feature Category
+                </Button>
+              </div>
+
+              {featuresCategories.length > 0 ? (
+                <div className="overflow-hidden bg-white rounded-lg border border-slate-200 shadow-sm">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Categories
+                        </th>
+                        <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {featuresCategories.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 text-slate-900 font-medium">
+                            {item.name}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">
+                            {item.categories && item.categories.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {item.categories.map((category: string, index: number) => (
+                                  <span
+                                    key={index}
+                                    className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                                  >
+                                    {category}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">No categories</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+                              <button
+                                onClick={() => handleStartEditFeatureCategory(item)}
+                                className="px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                              >
+                               <Edit className="w-4 h-4" /> 
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFeatureCategory(item.id)}
+                                className="px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                               <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-dashed border-slate-300 p-12 text-center">
+                  <p className="text-slate-600 mb-4">No feature categories yet.</p>
+                  <Button onClick={handleOpenNewFeatureCategory}>Create first feature category</Button>
+                </div>
+              )}
+
+              {showFeaturesModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900">
+                          {editingFeatureCategoryId ? "Edit Feature Category" : "Add Feature Category"}
+                        </h3>
+                        <p className="text-slate-600 text-sm mt-1">
+                          Enter the name and category values for this feature category group.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowFeaturesModal(false);
+                          setEditingFeatureCategoryId(null);
+                          setFeatureCategoryForm({ name: "", categories: "" });
+                        }}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSaveFeatureCategory} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 mb-1">
+                          Feature Category Name *
+                        </label>
+                        <Input
+                          value={featureCategoryForm.name}
+                          onChange={(e) =>
+                            setFeatureCategoryForm({
+                              ...featureCategoryForm,
+                              name: e.target.value,
+                            })
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 mb-1">
+                          Categories (one per line)
+                        </label>
+                        <textarea
+                          value={featureCategoryForm.categories}
+                          onChange={(e) =>
+                            setFeatureCategoryForm({
+                              ...featureCategoryForm,
+                              categories: e.target.value,
+                            })
+                          }
+                          rows={6}
+                          placeholder="Category 1\nCategory 2\nCategory 3"
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <Button type="submit" className="flex-1">
+                          {editingFeatureCategoryId ? "Update" : "Create"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowFeaturesModal(false);
+                            setEditingFeatureCategoryId(null);
+                            setFeatureCategoryForm({ name: "", categories: "" });
+                          }}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Settings Tab */}
           {currentTab === "settings" && (
             <div>
@@ -1223,7 +1391,7 @@ export default function SuperAdminDashboard() {
           )}
         </div>
 
-         {/* Pricing Modal - Global Level */}
+        {/* Pricing Modal - Global Level */}
         {showPricingModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1235,6 +1403,7 @@ export default function SuperAdminDashboard() {
                   onClick={() => {
                     setShowPricingModal(false);
                     setEditingPricingId(null);
+                    setSelectedFeatureValues([]);
                     setPricingForm({
                       name: "",
                       description: "",
@@ -1253,6 +1422,7 @@ export default function SuperAdminDashboard() {
               <form
                 onSubmit={handleCreatePricing}
                 className="p-6 space-y-4"
+                autoComplete="off"
               >
                 <div>
                   <label className="block text-sm font-medium text-slate-900 mb-1">
@@ -1342,20 +1512,75 @@ export default function SuperAdminDashboard() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Features (one per line)
+                    Features
                   </label>
-                  <textarea
-                    value={pricingForm.features}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        features: e.target.value,
-                      })
-                    }
-                    rows={5}
-                    placeholder="Up to 100 products&#10;Basic analytics&#10;Email support"
-                    className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
-                  />
+                   {featuresCategories.length > 0 ? (
+  <div className="border border-slate-300 rounded-lg p-2 max-h-40 overflow-y-auto bg-white">
+    {Array.from(
+      new Set(
+        featuresCategories.flatMap((item: any) =>
+          Array.isArray(item.categories) ? item.categories : []
+        )
+      )
+    ).map((category: string) => {
+      const normalizedCategory = category.trim();
+      const normalizeValue = (value: string) => value.trim().toLowerCase();
+      const selectedFeatures = selectedFeatureValues
+        .map((f) => f.trim())
+        .filter(Boolean);
+     const containsNormalized = (list: string[], value: string) =>
+  list.some(
+    (item) => item.trim().toLowerCase() === value.trim().toLowerCase()
+  );
+     return (
+        <label
+          key={normalizedCategory}
+          className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 rounded cursor-pointer text-sm"
+        >
+          <input
+            type="checkbox"
+            checked={containsNormalized(selectedFeatures, normalizedCategory)}
+            onChange={(e) => {
+              setSelectedFeatureValues((prev) => {
+                const normalizedPrev = prev
+                  .map((f) => f.trim())
+                  .filter(Boolean);
+                if (e.target.checked) {
+                  if (containsNormalized(normalizedPrev, normalizedCategory)) {
+                    return normalizedPrev;
+                  }
+                  return [...normalizedPrev, normalizedCategory];
+                }
+                return normalizedPrev.filter(
+                  (f) => normalizeValue(f) !== normalizeValue(normalizedCategory)
+                );
+              });
+            }}
+            className="accent-blue-600"
+          />
+          {normalizedCategory}
+        </label>
+      );
+    })}
+  </div>
+) : (
+                    <textarea
+                      name="pricing-features"
+                      autoComplete="off"
+                      spellCheck={false}
+                      inputMode="text"
+                      value={pricingForm.features}
+                      onChange={(e) =>
+                        setPricingForm({
+                          ...pricingForm,
+                          features: e.target.value,
+                        })
+                      }
+                      rows={5}
+                      placeholder="Up to 100 products&#10;Basic analytics&#10;Email support"
+                      className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
+                    />
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
@@ -1368,6 +1593,7 @@ export default function SuperAdminDashboard() {
                     onClick={() => {
                       setShowPricingModal(false);
                       setEditingPricingId(null);
+                      setSelectedFeatureValues([]);
                       setPricingForm({
                         name: "",
                         description: "",

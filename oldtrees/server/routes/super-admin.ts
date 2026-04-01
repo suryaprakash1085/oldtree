@@ -635,3 +635,150 @@ export const deletePricing: RequestHandler = async (req, res) => {
   }
 };
 
+export const getFeatureCategories: RequestHandler = async (req, res) => {
+  try {
+    const rows = await query("SELECT * FROM feature_categories WHERE is_active = TRUE ORDER BY name ASC");
+    const categories = Array.isArray(rows)
+      ? rows.map((row: any) => ({
+          ...row,
+          categories: row.categories ? JSON.parse(row.categories) : [],
+        }))
+      : [];
+    res.json({ success: true, data: categories });
+  } catch (error) {
+    console.error("Get feature categories error:", error);
+    res.status(500).json({ error: "Failed to fetch feature categories" });
+  }
+};
+
+export const createFeatureCategory: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can create feature categories" });
+      return;
+    }
+
+    const { name, categories } = req.body;
+    if (!name) {
+      res.status(400).json({ error: "Feature category name is required" });
+      return;
+    }
+
+    const { v4: uuidv4 } = await import("uuid");
+    const id = uuidv4();
+
+    const categoryList = Array.isArray(categories)
+      ? categories
+      : typeof categories === "string"
+      ? JSON.parse(categories)
+      : [];
+
+    await query(
+      `INSERT INTO feature_categories (id, name, categories, is_active)
+       VALUES (?, ?, ?, TRUE)`,
+      [id, name.trim(), JSON.stringify(categoryList)]
+    );
+
+    const newItem = await query("SELECT * FROM feature_categories WHERE id = ?", [id]);
+    const category = Array.isArray(newItem) && newItem[0]
+      ? { ...newItem[0], categories: newItem[0].categories ? JSON.parse(newItem[0].categories) : [] }
+      : null;
+
+    res.json({ success: true, data: category });
+  } catch (error) {
+    console.error("Create feature category error:", error);
+    res.status(500).json({ error: "Failed to create feature category" });
+  }
+};
+
+export const updateFeatureCategory: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+    const { featureCategoryId } = req.params;
+
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can update feature categories" });
+      return;
+    }
+
+    if (!featureCategoryId) {
+      res.status(400).json({ error: "Feature category ID is required" });
+      return;
+    }
+
+    const { name, categories } = req.body;
+    if (!name) {
+      res.status(400).json({ error: "Feature category name is required" });
+      return;
+    }
+
+    const categoryList = Array.isArray(categories)
+      ? categories
+      : typeof categories === "string"
+      ? JSON.parse(categories)
+      : [];
+
+    const exists = await query(
+      "SELECT id FROM feature_categories WHERE id = ?",
+      [featureCategoryId]
+    );
+
+    if (!Array.isArray(exists) || exists.length === 0) {
+      res.status(404).json({ error: "Feature category not found" });
+      return;
+    }
+
+    await query(
+      `UPDATE feature_categories SET name = ?, categories = ?, updated_at = NOW() WHERE id = ?`,
+      [name.trim(), JSON.stringify(categoryList), featureCategoryId]
+    );
+
+    const updated = await query("SELECT * FROM feature_categories WHERE id = ?", [featureCategoryId]);
+    const category = Array.isArray(updated) && updated[0]
+      ? { ...updated[0], categories: updated[0].categories ? JSON.parse(updated[0].categories) : [] }
+      : null;
+
+    res.json({ success: true, data: category });
+  } catch (error) {
+    console.error("Update feature category error:", error);
+    res.status(500).json({ error: "Failed to update feature category" });
+  }
+};
+
+export const deleteFeatureCategory: RequestHandler = async (req, res) => {
+  try {
+    const userRole = (req as any).role;
+    const { featureCategoryId } = req.params;
+
+    if (userRole !== "super-admin") {
+      res.status(403).json({ error: "Unauthorized: Only super admins can delete feature categories" });
+      return;
+    }
+
+    if (!featureCategoryId) {
+      res.status(400).json({ error: "Feature category ID is required" });
+      return;
+    }
+
+    const exists = await query(
+      "SELECT id FROM feature_categories WHERE id = ?",
+      [featureCategoryId]
+    );
+
+    if (!Array.isArray(exists) || exists.length === 0) {
+      res.status(404).json({ error: "Feature category not found" });
+      return;
+    }
+
+    await query(
+      "UPDATE feature_categories SET is_active = FALSE WHERE id = ?",
+      [featureCategoryId]
+    );
+
+    res.json({ success: true, message: "Feature category deleted" });
+  } catch (error) {
+    console.error("Delete feature category error:", error);
+    res.status(500).json({ error: "Failed to delete feature category" });
+  }
+};
