@@ -3543,6 +3543,105 @@ export default function ClientAdminDashboard() {
             </div>
           )}
 
+          {showCustomerModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 relative">
+      
+      {/* Close Button */}
+      <button
+        onClick={() => setShowCustomerModal(false)}
+        className="absolute top-3 right-3 text-slate-400 hover:text-black"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-lg font-semibold mb-4">
+        {editingCustomerId ? "Edit Customer" : "Add Customer"}
+      </h2>
+
+      {/* Form */}
+      <form
+        onSubmit={handleSaveCustomer}
+        className="space-y-4"
+      >
+        <input
+          type="text"
+          placeholder="First Name"
+          value={customerForm.first_name}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, first_name: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="text"
+          placeholder="Last Name"
+          value={customerForm.last_name}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, last_name: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="email"
+          placeholder="Email"
+          value={customerForm.email}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, email: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="text"
+          placeholder="Phone"
+          value={customerForm.phone}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, phone: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="text"
+          placeholder="City"
+          value={customerForm.city}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, city: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="text"
+          placeholder="Country"
+          value={customerForm.country}
+          onChange={(e) =>
+            setCustomerForm({ ...customerForm, country: e.target.value })
+          }
+          className="w-full border p-2 rounded"
+        />
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCustomerModal(false)}
+          >
+            Cancel
+          </Button>
+
+          <Button type="submit">
+            {editingCustomerId ? "Update" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
           {/* Discounts Tab */}
           {currentTab === "discounts" && loadedSections["discounts"] && (
             <div>
