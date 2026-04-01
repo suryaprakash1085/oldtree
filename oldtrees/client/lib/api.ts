@@ -376,6 +376,40 @@ export async function createClientDiscount(discount: any, tenantId?: string) {
   return response.json();
 }
 
+export async function updateClientCustomer(customerId: string, customer: any, tenantId?: string) {
+  const response = await apiFetch(buildClientAdminUrl(`/customers/${customerId}`, tenantId), {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(customer),
+  });
+  return response.json();
+}
+
+export async function deleteClientCustomer(customerId: string, tenantId?: string) {
+  const response = await apiFetch(buildClientAdminUrl(`/customers/${customerId}`, tenantId), {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  return response.json();
+}
+
+export async function updateClientDiscount(discountId: string, discount: any, tenantId?: string) {
+  const response = await apiFetch(buildClientAdminUrl(`/discounts/${discountId}`, tenantId), {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(discount),
+  });
+  return response.json();
+}
+
+export async function deleteClientDiscount(discountId: string, tenantId?: string) {
+  const response = await apiFetch(buildClientAdminUrl(`/discounts/${discountId}`, tenantId), {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  return response.json();
+}
+
 // Storefront APIs
 export async function getStorefrontProducts(tenantId: string) {
   const response = await fetch(`${API_BASE}/store/${tenantId}/products`);

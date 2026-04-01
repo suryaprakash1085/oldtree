@@ -51,6 +51,10 @@ import {
   getClientCustomers,
   getClientDiscounts,
   createClientDiscount,
+  updateClientCustomer,
+  deleteClientCustomer,
+  updateClientDiscount,
+  deleteClientDiscount,
   getBusinessDetails,
   updateBusinessDetails,
   getSEOSettings,
@@ -143,6 +147,9 @@ export default function ClientAdminDashboard() {
     errors: string[];
   }>({ total: 0, completed: 0, errors: [] });
   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -179,6 +186,15 @@ export default function ClientAdminDashboard() {
     maxUses: "",
     validFrom: "",
     validUntil: "",
+  });
+
+  const [customerForm, setCustomerForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    city: "",
+    country: "",
   });
 
   const [staffForm, setStaffForm] = useState({
@@ -1517,8 +1533,16 @@ export default function ClientAdminDashboard() {
         validUntil: discountForm.validUntil || null,
       };
 
-      await createClientDiscount(discountData, tenantId || undefined);
-      toast.success("Discount created successfully");
+      // Check if we're editing or creating
+      if (editingDiscountId) {
+        await updateClientDiscount(editingDiscountId, discountData, tenantId || undefined);
+        toast.success("Discount updated successfully");
+        setEditingDiscountId(null);
+      } else {
+        await createClientDiscount(discountData, tenantId || undefined);
+        toast.success("Discount created successfully");
+      }
+
       setDiscountForm({
         code: "",
         description: "",
@@ -1533,9 +1557,96 @@ export default function ClientAdminDashboard() {
       await fetchTabData("discounts", true);
     } catch (error) {
       const errorMsg =
-        error instanceof Error ? error.message : "Failed to create discount";
+        error instanceof Error ? error.message : "Failed to save discount";
       toast.error(errorMsg);
-      console.error("Discount creation error:", error);
+      console.error("Discount save error:", error);
+    }
+  };
+
+  const handleEditCustomer = (customer: any) => {
+    setCustomerForm({
+      first_name: customer.first_name || "",
+      last_name: customer.last_name || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      city: customer.city || "",
+      country: customer.country || "",
+    });
+    setEditingCustomerId(customer.id);
+    setShowCustomerModal(true);
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!customerForm.email || !customerForm.email.trim()) {
+        return toast.error("Email is required");
+      }
+
+      await updateClientCustomer(editingCustomerId!, customerForm, tenantId || undefined);
+      toast.success("Customer updated successfully");
+      setShowCustomerModal(false);
+      setEditingCustomerId(null);
+      setCustomerForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        city: "",
+        country: "",
+      });
+      await fetchTabData("customers", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to update customer";
+      toast.error(errorMsg);
+      console.error("Customer update error:", error);
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string) => {
+    if (!window.confirm("Are you sure you want to delete this customer?")) {
+      return;
+    }
+
+    try {
+      await deleteClientCustomer(customerId, tenantId || undefined);
+      toast.success("Customer deleted successfully");
+      await fetchTabData("customers", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to delete customer";
+      toast.error(errorMsg);
+      console.error("Customer deletion error:", error);
+    }
+  };
+
+  const handleEditDiscount = (discount: any) => {
+    setDiscountForm({
+      code: discount.code || "",
+      description: discount.description || "",
+      discountType: discount.discount_type || "percentage",
+      discountValue: discount.discount_value?.toString() || "",
+      minOrderAmount: discount.min_order_amount?.toString() || "",
+      maxUses: discount.max_uses?.toString() || "",
+      validFrom: discount.valid_from || "",
+      validUntil: discount.valid_until || "",
+    });
+    setEditingDiscountId(discount.id);
+    setShowDiscountModal(true);
+  };
+
+  const handleDeleteDiscount = async (discountId: string) => {
+    if (!window.confirm("Are you sure you want to delete this discount?")) {
+      return;
+    }
+
+    try {
+      await deleteClientDiscount(discountId, tenantId || undefined);
+      toast.success("Discount deleted successfully");
+      await fetchTabData("discounts", true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Failed to delete discount";
+      toast.error(errorMsg);
+      console.error("Discount deletion error:", error);
     }
   };
 
@@ -3375,6 +3486,9 @@ export default function ClientAdminDashboard() {
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Total Spent
                         </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3397,6 +3511,23 @@ export default function ClientAdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-slate-900 font-medium">
                             ₹{customer.total_spent?.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-slate-900 font-medium">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditCustomer(customer)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteCustomer(customer.id)}
+                              className="ml-2"
+                            >
+                              Delete
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -3433,10 +3564,23 @@ export default function ClientAdminDashboard() {
                   <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="flex items-center justify-between p-6 border-b border-slate-200">
                       <h3 className="text-xl font-bold text-slate-900">
-                        Create Discount Code
+                        {editingDiscountId ? "Edit Discount Code" : "Create Discount Code"}
                       </h3>
                       <button
-                        onClick={() => setShowDiscountModal(false)}
+                        onClick={() => {
+                          setShowDiscountModal(false);
+                          setEditingDiscountId(null);
+                          setDiscountForm({
+                            code: "",
+                            description: "",
+                            discountType: "percentage",
+                            discountValue: "",
+                            minOrderAmount: "",
+                            maxUses: "",
+                            validFrom: "",
+                            validUntil: "",
+                          });
+                        }}
                         className="text-slate-400 hover:text-slate-600"
                       >
                         <X className="w-6 h-6" />
@@ -3586,12 +3730,25 @@ export default function ClientAdminDashboard() {
 
                       <div className="flex gap-3 pt-4">
                         <Button type="submit" className="flex-1">
-                          Create Discount
+                          {editingDiscountId ? "Update Discount" : "Create Discount"}
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => setShowDiscountModal(false)}
+                          onClick={() => {
+                            setShowDiscountModal(false);
+                            setEditingDiscountId(null);
+                            setDiscountForm({
+                              code: "",
+                              description: "",
+                              discountType: "percentage",
+                              discountValue: "",
+                              minOrderAmount: "",
+                              maxUses: "",
+                              validFrom: "",
+                              validUntil: "",
+                            });
+                          }}
                           className="flex-1"
                         >
                           Cancel
@@ -3621,6 +3778,9 @@ export default function ClientAdminDashboard() {
                         </th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Usage
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -3656,6 +3816,24 @@ export default function ClientAdminDashboard() {
                             {discount.used_count || 0} /{" "}
                             {discount.max_uses || "∞"}
                           </td>
+                          <td className="px-6 py-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditDiscount(discount)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm" 
+                              onClick={() => handleDeleteDiscount(discount.id)}
+                              className="ml-2"
+                            >
+                                Delete
+                                </Button>
+                          </td>
+                          
                         </tr>
                       ))}
                     </tbody>
