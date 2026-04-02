@@ -386,7 +386,12 @@ export default function ClientAdminDashboard() {
 
   const handlePlanLimitError = (error: any): string | null => {
     const message = error instanceof Error ? error.message : "An unexpected error occurred";
-    if (message.toLowerCase().includes("please upgrade your plan")) {
+    const normalized = message.toLowerCase();
+    if (
+      normalized.includes("please upgrade your plan") ||
+      normalized.includes("your current plan does not support") ||
+      normalized.includes("limit reached")
+    ) {
       openUpgradePlanModal(message);
       return null;
     }
