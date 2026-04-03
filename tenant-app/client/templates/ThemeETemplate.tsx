@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { getStorefrontProductsWithPagination, createOrder, getStorefrontConfig, validateDiscount, getPublishedPages, getBlogPosts, getHeroSliders, getContactUs, getPaymentInfo } from "@/lib/api";
 import { getTenantIdFromEnv, getTenantNameFromEnv, formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
-import "./ThemeDTemplate.css";
+import "./ThemeETemplate.css";
 import "../components/SearchModal.css";
 import { saveCart, loadCart } from "@/lib/cart";
 import { useNavigate, Link } from "react-router-dom";
@@ -20,7 +20,7 @@ interface Product {
   category: string;
 }
 
-export default function ThemeDTemplate() {
+export default function ThemeETemplate() {
   const tenantId = getTenantIdFromEnv();
   const defaultTenantName = getTenantNameFromEnv();
   const [products, setProducts] = useState<Product[]>([]);
@@ -48,7 +48,7 @@ export default function ThemeDTemplate() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [priceListUrl, setPriceListUrl] = useState<string | null>(null);
+  const [priceListUrl, setPriceListUrl] = useState<any>(null);
   const searchSectionRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [contactUs, setContactUs] = useState<any>(null);
@@ -102,6 +102,7 @@ export default function ThemeDTemplate() {
         const extractedCategories = Array.from(new Set(result.data.map((p) => p.category).filter(Boolean))) as string[];
         setCategories(extractedCategories);
 
+        // const config = await getStorefrontConfig(tenantId);
         const config: any = await getStorefrontConfig(tenantId);
         if (config?.seo?.minOrderAmount) {
           setMinOrderAmount(config.seo.minOrderAmount);
@@ -119,7 +120,7 @@ export default function ThemeDTemplate() {
             setTenantName(config.theme.companyName);
           }
           if (config?.theme?.logo) {
-            setTenantLogo(toAbsoluteUrl(config.theme.logo)?? null);
+            setTenantLogo(toAbsoluteUrl(config.theme.logo) ?? null);
           }
         } catch (err) {
           console.warn("Could not load business details:", err);
@@ -140,10 +141,10 @@ export default function ThemeDTemplate() {
 
         try {
           setSocialLinks({
-            youtube: config?.business?.youtubeUrl || "",
-            instagram: config?.business?.instagramUrl || "",
-            facebook: config?.business?.facebookUrl || "",
-          });
+          youtube: config?.business?.youtubeUrl ?? "",
+          instagram: config?.business?.instagramUrl ?? "",
+          facebook: config?.business?.facebookUrl ?? "",
+});
         } catch (err) {
           console.warn("Could not load social media links:", err);
         }
@@ -286,69 +287,69 @@ export default function ThemeDTemplate() {
   const toUrl = (u?: string | null) => !u ? undefined : (/^https?:\/\//i.test(u) ? u : `${API_HOST}${u.startsWith("/") ? "" : "/"}${u}`);
 
   return (
-    <div className="theme-d-container" data-testid="theme-d-container">
+    <div className="theme-e-container" data-testid="theme-e-container">
       {/* Announcement Banner */}
       {announcementMessage && (
-        <div className="theme-d-announcement">
+        <div className="theme-e-announcement">
           <p>{announcementMessage}</p>
         </div>
       )}
 
       {/* Header */}
-      <header className="theme-d-header">
-        <div className="theme-d-header-content">
-          <div className="theme-d-logo-section">
+      <header className="theme-e-header">
+        <div className="theme-e-header-content">
+          <div className="theme-e-logo-section">
             {tenantLogo ? (
-              <img src={tenantLogo} alt={tenantName} className="theme-d-logo-img" />
+              <img src={tenantLogo} alt={tenantName} className="theme-e-logo-img" />
             ) : (
-              <h1 className="theme-d-logo-text">{tenantName}</h1>
+              <h1 className="theme-e-logo-text">{tenantName}</h1>
             )}
           </div>
 
-          <button className="theme-d-nav-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button className="theme-e-nav-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
-          <nav className={`theme-d-header-nav ${mobileMenuOpen ? 'open' : ''}`}>
+          <nav className={`theme-e-header-nav ${mobileMenuOpen ? 'open' : ''}`}>
             {computedCategories.map((cat) => (
               <button
                 key={cat}
-                className={`theme-d-header-btn ${selectedCategory === cat ? "active" : ""}`}
+                className={`theme-e-header-btn ${selectedCategory === cat ? "active" : ""}`}
                 onClick={() => { setSelectedCategory(cat); setMobileMenuOpen(false); }}
               >
                 {cat}
               </button>
             ))}
-            <Link to="/blog" className="theme-d-header-btn" onClick={() => setMobileMenuOpen(false)}>Blog</Link>
-            <Link to="/track-order" className="theme-d-header-btn" onClick={() => setMobileMenuOpen(false)}>Track Order</Link>
+            <Link to="/blog" className="theme-e-header-btn" onClick={() => setMobileMenuOpen(false)}>Blog</Link>
+            <Link to="/track-order" className="theme-e-header-btn" onClick={() => setMobileMenuOpen(false)}>Track Order</Link>
             {publishedPages.map((p) => (
-              <Link key={p.slug} to={`/page/${encodeURIComponent(p.slug)}`} className="theme-d-header-btn" onClick={() => setMobileMenuOpen(false)}>
+              <Link key={p.slug} to={`/page/${encodeURIComponent(p.slug)}`} className="theme-e-header-btn" onClick={() => setMobileMenuOpen(false)}>
                 {p.title}
               </Link>
             ))}
-            {contactUs && <Link to="/page/contact" className="theme-d-header-btn" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>}
-            {paymentInfo && <Link to="/page/payment-info" className="theme-d-header-btn" onClick={() => setMobileMenuOpen(false)}>Payment Info</Link>}
+            {contactUs && <Link to="/page/contact" className="theme-e-header-btn" onClick={() => setMobileMenuOpen(false)}>Contact Us</Link>}
+            {paymentInfo && <Link to="/page/payment-info" className="theme-e-header-btn" onClick={() => setMobileMenuOpen(false)}>Payment Info</Link>}
           </nav>
 
-          <div className="theme-d-header-actions">
+          <div className="theme-e-header-actions">
             <button
-              className="theme-d-header-btn-icon"
+              className="theme-e-header-btn-icon"
               onClick={() => setShowSearchModal(true)}
               title="Search products"
             >
               <Search size={20} />
             </button>
             <button
-              className="theme-d-header-btn-icon"
+              className="theme-e-header-btn-icon"
               onClick={() => setShowWishlistModal(true)}
               title={`View wishlist (${wishlist.size})`}
             >
               <Heart size={20} />
             </button>
-            <div className="theme-d-cart-section">
-              <span className="theme-d-cart-count">{cart.size}</span>
+            <div className="theme-e-cart-section">
+              <span className="theme-e-cart-count">{cart.size}</span>
             </div>
             {cart.size > 0 && (
-              <button onClick={() => { saveCart(tenantId, cart); navigate('/checkout'); }} className="theme-d-checkout-link">
+              <button onClick={() => { saveCart(tenantId, cart); navigate('/checkout'); }} className="theme-e-checkout-link">
                 Checkout
               </button>
             )}
@@ -357,23 +358,23 @@ export default function ThemeDTemplate() {
       </header>
 
       {/* Hero Carousel / Banner */}
-      <section className="theme-d-hero">
-        <div className="theme-d-hero-container">
-          <div className="theme-d-hero-slide">
+      <section className="theme-e-hero">
+        <div className="theme-e-hero-container">
+          <div className="theme-e-hero-slide">
             {heroSliders.length > 0 && heroSliders[carouselIndex]?.image_url && (
-              <img src={toUrl(heroSliders[carouselIndex].image_url)} alt="Hero" className="theme-d-hero-img" />
+              <img src={toUrl(heroSliders[carouselIndex].image_url)} alt="Hero" className="theme-e-hero-img" />
             )}
-            <div className="theme-d-hero-content">
+            <div className="theme-e-hero-content">
               <h2>{heroSliders.length > 0 ? (heroSliders[carouselIndex]?.title || tenantName) : tenantName}</h2>
               <p>{heroSliders.length > 0 ? (heroSliders[carouselIndex]?.subtitle || "Welcome to our store") : "Explore our exclusive collection"}</p>
             </div>
           </div>
           {heroSliders.length > 1 && (
-            <div className="theme-d-hero-dots">
+            <div className="theme-e-hero-dots">
               {heroSliders.map((_, idx) => (
                 <button
                   key={idx}
-                  className={`theme-d-dot ${idx === carouselIndex ? "active" : ""}`}
+                  className={`theme-e-dot ${idx === carouselIndex ? "active" : ""}`}
                   onClick={() => setCarouselIndex(idx)}
                 />
               ))}
@@ -383,18 +384,18 @@ export default function ThemeDTemplate() {
       </section>
 
       {/* Main Content */}
-      <div className="theme-d-main">
+      <div className="theme-e-main">
         {/* Search Bar */}
         {products.length > 0 && (
-          <div className="theme-d-search-section" ref={searchSectionRef}>
-            <div className="theme-d-search-wrapper">
-              <Search size={20} className="theme-d-search-icon" />
+          <div className="theme-e-search-section" ref={searchSectionRef}>
+            <div className="theme-e-search-wrapper">
+              <Search size={20} className="theme-e-search-icon" />
               <input
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="theme-d-search-input"
+                className="theme-e-search-input"
               />
             </div>
           </div>
@@ -402,19 +403,19 @@ export default function ThemeDTemplate() {
 
         {/* Products Table */}
         {loading ? (
-          <div className="theme-d-loading">
-            <div className="theme-d-loader"></div>
+          <div className="theme-e-loading">
+            <div className="theme-e-loader"></div>
             <p>Loading products...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="theme-d-empty">
+          <div className="theme-e-empty">
             <p>No products available</p>
           </div>
         ) : (
-          <div className="theme-d-products-table-wrapper">
-            <table className="theme-d-products-table">
+          <div className="theme-e-products-table-wrapper">
+            <table className="theme-e-products-table">
               <thead>
-                <tr className="theme-d-table-header">
+                <tr className="theme-e-table-header">
                   <th>Product Name</th>
                   <th>Description</th>
                   <th>Price</th>
@@ -424,39 +425,39 @@ export default function ThemeDTemplate() {
               </thead>
               <tbody>
                 {filteredProducts.map((product, idx) => (
-                  <tr key={product.id} className={`theme-d-table-row ${idx % 2 === 0 ? 'even' : 'odd'}`}>
-                    <td className="theme-d-product-name">
+                  <tr key={product.id} className={`theme-e-table-row ${idx % 2 === 0 ? 'even' : 'odd'}`}>
+                    <td className="theme-e-product-name">
                       {product.imageUrl && (
                         <img
                           src={product.imageUrl}
                           alt={product.name}
-                          className="theme-d-product-img"
+                          className="theme-e-product-img"
                           onClick={() => setLightboxImage(product.imageUrl || null)}
                           style={{ cursor: 'pointer' }}
                         />
                       )}
                       <span>{product.name}</span>
                     </td>
-                    <td className="theme-d-product-desc">{product.description}</td>
-                    <td className="theme-d-product-price">{formatPrice(product.price)}</td>
-                    <td className="theme-d-product-stock">
+                    <td className="theme-e-product-desc">{product.description}</td>
+                    <td className="theme-e-product-price">{formatPrice(product.price)}</td>
+                    <td className="theme-e-product-stock">
                       {product.stock_quantity > 0 ? (
-                        <span className="theme-d-in-stock">In Stock ({product.stock_quantity})</span>
+                        <span className="theme-e-in-stock">In Stock ({product.stock_quantity})</span>
                       ) : (
-                        <span className="theme-d-out-stock">Out of Stock</span>
+                        <span className="theme-e-out-stock">Out of Stock</span>
                       )}
                     </td>
-                    <td className="theme-d-actions">
+                    <td className="theme-e-actions">
                       <button
                         onClick={() => addToCart(product.id)}
                         disabled={product.stock_quantity === 0}
-                        className="theme-d-add-btn"
+                        className="theme-e-add-btn"
                       >
                         Add
                       </button>
                       <button
                         onClick={() => toggleWishlistItem(product.id)}
-                        className={`theme-d-favorite-btn ${wishlist.has(product.id) ? 'active' : ''}`}
+                        className={`theme-e-favorite-btn ${wishlist.has(product.id) ? 'active' : ''}`}
                       >
                         <Heart size={16} fill={wishlist.has(product.id) ? "currentColor" : "none"} />
                       </button>
@@ -469,11 +470,11 @@ export default function ThemeDTemplate() {
         )}
 
         {!loading && products.length > 0 && currentPage < totalPages && (
-          <div className="theme-d-load-more-container">
+          <div className="theme-e-load-more-container">
             <button
               onClick={loadMoreProducts}
               disabled={loadingMore}
-              className="theme-d-load-more-btn"
+              className="theme-e-load-more-btn"
             >
               {loadingMore ? "Loading..." : "Load More Products"}
             </button>
@@ -482,27 +483,27 @@ export default function ThemeDTemplate() {
       </div>
 
       {/* Why Choose Us Section */}
-      <section className="theme-d-why-section">
-        <div className="theme-d-why-content">
-          <h2 className="theme-d-why-title">Why Choose Us?</h2>
-          <div className="theme-d-why-grid">
-            <div className="theme-d-why-box">
-              <div className="theme-d-why-icon"><Award size={40} /></div>
+      <section className="theme-e-why-section">
+        <div className="theme-e-why-content">
+          <h2 className="theme-e-why-title">Why Choose Us?</h2>
+          <div className="theme-e-why-grid">
+            <div className="theme-e-why-box">
+              <div className="theme-e-why-icon"><Award size={40} /></div>
               <h3>Premium Quality</h3>
               <p>100% authentic products with quality guarantee</p>
             </div>
-            <div className="theme-d-why-box">
-              <div className="theme-d-why-icon"><Zap size={40} /></div>
+            <div className="theme-e-why-box">
+              <div className="theme-e-why-icon"><Zap size={40} /></div>
               <h3>Fast Processing</h3>
               <p>Quick order processing and shipment</p>
             </div>
-            <div className="theme-d-why-box">
-              <div className="theme-d-why-icon"><Shield size={40} /></div>
+            <div className="theme-e-why-box">
+              <div className="theme-e-why-icon"><Shield size={40} /></div>
               <h3>Secure Payments</h3>
               <p>Safe and encrypted payment processing</p>
             </div>
-            <div className="theme-d-why-box">
-              <div className="theme-d-why-icon"><Truck size={40} /></div>
+            <div className="theme-e-why-box">
+              <div className="theme-e-why-icon"><Truck size={40} /></div>
               <h3>Reliable Delivery</h3>
               <p>Timely and secure delivery to your doorstep</p>
             </div>
@@ -511,151 +512,151 @@ export default function ThemeDTemplate() {
       </section>
 
       {/* Statistics Section */}
-      <section className="theme-d-stats-section">
-        <div className="theme-d-stats-grid">
-          <div className="theme-d-stat">
-            <div className="theme-d-stat-number">10K+</div>
-            <div className="theme-d-stat-label">Happy Customers</div>
+      <section className="theme-e-stats-section">
+        <div className="theme-e-stats-grid">
+          <div className="theme-e-stat">
+            <div className="theme-e-stat-number">10K+</div>
+            <div className="theme-e-stat-label">Happy Customers</div>
           </div>
-          <div className="theme-d-stat">
-            <div className="theme-d-stat-number">5K+</div>
-            <div className="theme-d-stat-label">Products Available</div>
+          <div className="theme-e-stat">
+            <div className="theme-e-stat-number">5K+</div>
+            <div className="theme-e-stat-label">Products Available</div>
           </div>
-          <div className="theme-d-stat">
-            <div className="theme-d-stat-number">24/7</div>
-            <div className="theme-d-stat-label">Customer Support</div>
+          <div className="theme-e-stat">
+            <div className="theme-e-stat-number">24/7</div>
+            <div className="theme-e-stat-label">Customer Support</div>
           </div>
-          <div className="theme-d-stat">
-            <div className="theme-d-stat-number">100%</div>
-            <div className="theme-d-stat-label">Satisfaction Rate</div>
+          <div className="theme-e-stat">
+            <div className="theme-e-stat-number">100%</div>
+            <div className="theme-e-stat-label">Satisfaction Rate</div>
           </div>
         </div>
       </section>
 
       {/* Testimonials Section */}
-      <section className="theme-d-testimonials-section">
-        <h2 className="theme-d-testimonials-title">Customer Reviews</h2>
-        <p className="theme-d-testimonials-subtitle">What our customers are saying</p>
-        <div className="theme-d-testimonials-grid">
-          <div className="theme-d-testimonial-card">
-            <div className="theme-d-testimonial-stars">
+      <section className="theme-e-testimonials-section">
+        <h2 className="theme-e-testimonials-title">Customer Reviews</h2>
+        <p className="theme-e-testimonials-subtitle">What our customers are saying</p>
+        <div className="theme-e-testimonials-grid">
+          <div className="theme-e-testimonial-card">
+            <div className="theme-e-testimonial-stars">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={16} className="theme-d-star-filled" />
+                <Star key={i} size={16} className="theme-e-star-filled" />
               ))}
             </div>
-            <p className="theme-d-testimonial-text">"Excellent quality products and very fast delivery. Highly recommend this store!"</p>
-            <p className="theme-d-testimonial-author">— Sarah Johnson</p>
+            <p className="theme-e-testimonial-text">"Excellent quality products and very fast delivery. Highly recommend this store!"</p>
+            <p className="theme-e-testimonial-author">— Sarah Johnson</p>
           </div>
-          <div className="theme-d-testimonial-card">
-            <div className="theme-d-testimonial-stars">
+          <div className="theme-e-testimonial-card">
+            <div className="theme-e-testimonial-stars">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={16} className="theme-d-star-filled" />
+                <Star key={i} size={16} className="theme-e-star-filled" />
               ))}
             </div>
-            <p className="theme-d-testimonial-text">"Great customer service and competitive prices. My go-to store for all my needs."</p>
-            <p className="theme-d-testimonial-author">— Michael Chen</p>
+            <p className="theme-e-testimonial-text">"Great customer service and competitive prices. My go-to store for all my needs."</p>
+            <p className="theme-e-testimonial-author">— Michael Chen</p>
           </div>
-          <div className="theme-d-testimonial-card">
-            <div className="theme-d-testimonial-stars">
+          <div className="theme-e-testimonial-card">
+            <div className="theme-e-testimonial-stars">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={16} className="theme-d-star-filled" />
+                <Star key={i} size={16} className="theme-e-star-filled" />
               ))}
             </div>
-            <p className="theme-d-testimonial-text">"Amazing variety of products. The quality exceeded my expectations."</p>
-            <p className="theme-d-testimonial-author">— Emily Rodriguez</p>
+            <p className="theme-e-testimonial-text">"Amazing variety of products. The quality exceeded my expectations."</p>
+            <p className="theme-e-testimonial-author">— Emily Rodriguez</p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="theme-d-footer">
-        <div className="theme-d-footer-top">
+      <footer className="theme-e-footer">
+        <div className="theme-e-footer-top">
           {(publishedPages.length > 0 || contactUs || paymentInfo) && (
-            <div className="theme-d-footer-col">
+            <div className="theme-e-footer-col">
               <h4>Pages</h4>
-              <div className="theme-d-footer-links">
+              <div className="theme-e-footer-links">
                 {publishedPages.map((p) => (
-                  <Link key={p.slug} to={`/page/${encodeURIComponent(p.slug)}`} className="theme-d-footer-link">{p.title}</Link>
+                  <Link key={p.slug} to={`/page/${encodeURIComponent(p.slug)}`} className="theme-e-footer-link">{p.title}</Link>
                 ))}
-                {contactUs && <Link to="/page/contact" className="theme-d-footer-link">Contact Us</Link>}
-                {paymentInfo && <Link to="/page/payment-info" className="theme-d-footer-link">Payment Info</Link>}
+                {contactUs && <Link to="/page/contact" className="theme-e-footer-link">Contact Us</Link>}
+                {paymentInfo && <Link to="/page/payment-info" className="theme-e-footer-link">Payment Info</Link>}
               </div>
             </div>
           )}
           {recentPosts.length > 0 && (
-            <div className="theme-d-footer-col">
+            <div className="theme-e-footer-col">
               <h4>Recent Posts</h4>
-              <div className="theme-d-footer-links">
+              <div className="theme-e-footer-links">
                 {recentPosts.slice(0, 3).map((p) => (
-                  <Link key={p.slug} to={`/blog/${encodeURIComponent(p.slug)}`} className="theme-d-footer-link">{p.title}</Link>
+                  <Link key={p.slug} to={`/blog/${encodeURIComponent(p.slug)}`} className="theme-e-footer-link">{p.title}</Link>
                 ))}
-                <Link to="/blog" className="theme-d-footer-link">View all</Link>
+                <Link to="/blog" className="theme-e-footer-link">View all</Link>
               </div>
             </div>
           )}
           {(socialLinks.facebook || socialLinks.instagram || socialLinks.youtube) && (
-            <div className="theme-d-footer-col">
+            <div className="theme-e-footer-col">
               <h4>Follow Us</h4>
-              <div className="theme-d-footer-links">
+              <div className="theme-e-footer-links">
                 {socialLinks.facebook && (
-                  <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="theme-d-footer-link" aria-label="Facebook"><Facebook size={18} className="inline mr-2" />Facebook</a>
+                  <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="theme-e-footer-link" aria-label="Facebook"><Facebook size={18} className="inline mr-2" />Facebook</a>
                 )}
                 {socialLinks.instagram && (
-                  <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="theme-d-footer-link" aria-label="Instagram"><Instagram size={18} className="inline mr-2" />Instagram</a>
+                  <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="theme-e-footer-link" aria-label="Instagram"><Instagram size={18} className="inline mr-2" />Instagram</a>
                 )}
                 {socialLinks.youtube && (
-                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="theme-d-footer-link" aria-label="YouTube"><Play size={18} className="inline mr-2" />YouTube</a>
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="theme-e-footer-link" aria-label="YouTube"><Play size={18} className="inline mr-2" />YouTube</a>
                 )}
               </div>
             </div>
           )}
         </div>
-        <div className="theme-d-footer-bottom">
+        <div className="theme-e-footer-bottom">
           <p>&copy; 2024 {tenantName}. All rights reserved.</p>
         </div>
       </footer>
 
       {/* Wishlist Modal */}
       {showWishlistModal && (
-        <div className="theme-d-modal-overlay" onClick={() => setShowWishlistModal(false)}>
-          <div className="theme-d-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="theme-d-modal-header">
+        <div className="theme-e-modal-overlay" onClick={() => setShowWishlistModal(false)}>
+          <div className="theme-e-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="theme-e-modal-header">
               <h2>My Favorites</h2>
               <button
-                className="theme-d-modal-close"
+                className="theme-e-modal-close"
                 onClick={() => setShowWishlistModal(false)}
               >
                 <X size={24} />
               </button>
             </div>
-            <div className="theme-d-modal-body">
+            <div className="theme-e-modal-body">
               {wishlist.size === 0 ? (
-                <div className="theme-d-empty-wishlist">
+                <div className="theme-e-empty-wishlist">
                   <Heart size={48} />
                   <p>Your wishlist is empty</p>
                 </div>
               ) : (
-                <div className="theme-d-wishlist-items">
+                <div className="theme-e-wishlist-items">
                   {products.filter(p => wishlist.has(p.id)).map((product) => (
-                    <div key={product.id} className="theme-d-wishlist-item">
-                      <div className="theme-d-wishlist-image">
+                    <div key={product.id} className="theme-e-wishlist-item">
+                      <div className="theme-e-wishlist-image">
                         {product.imageUrl && (
                           <img src={product.imageUrl} alt={product.name} />
                         )}
                       </div>
-                      <div className="theme-d-wishlist-details">
+                      <div className="theme-e-wishlist-details">
                         <h4>{product.name}</h4>
                         <p>{formatPrice(product.price)}</p>
                       </div>
                       <button
-                        className="theme-d-wishlist-add-btn"
+                        className="theme-e-wishlist-add-btn"
                         onClick={() => addToCart(product.id)}
                         disabled={product.stock_quantity === 0}
                       >
                         Add
                       </button>
                       <button
-                        className="theme-d-wishlist-remove-btn"
+                        className="theme-e-wishlist-remove-btn"
                         onClick={() => toggleWishlistItem(product.id)}
                       >
                         <Heart size={16} fill="currentColor" />
@@ -680,12 +681,12 @@ export default function ThemeDTemplate() {
       {/* Lightbox Modal */}
       {lightboxImage && (
         <div
-          className="theme-d-lightbox-overlay"
+          className="theme-e-lightbox-overlay"
           onClick={() => setLightboxImage(null)}
         >
-          <div className="theme-d-lightbox-content" onClick={(e) => e.stopPropagation()}>
+          <div className="theme-e-lightbox-content" onClick={(e) => e.stopPropagation()}>
             <button
-              className="theme-d-lightbox-close"
+              className="theme-e-lightbox-close"
               onClick={() => setLightboxImage(null)}
               aria-label="Close lightbox"
             >
@@ -694,7 +695,7 @@ export default function ThemeDTemplate() {
             <img
               src={lightboxImage}
               alt="Product preview"
-              className="theme-d-lightbox-image"
+              className="theme-e-lightbox-image"
             />
           </div>
         </div>
@@ -702,15 +703,15 @@ export default function ThemeDTemplate() {
 
       {/* Fixed Footer Checkout */}
       {cart.size > 0 && (
-        <div className="theme-d-fixed-footer">
-          <div className="theme-d-footer-content">
-            <div className="theme-d-footer-left">
-              <span className="theme-d-footer-items">{cart.size} item{cart.size !== 1 ? 's' : ''} in cart</span>
-              <span className="theme-d-footer-total">{formatPrice(total)}</span>
+        <div className="theme-e-fixed-footer">
+          <div className="theme-e-footer-content">
+            <div className="theme-e-footer-left">
+              <span className="theme-e-footer-items">{cart.size} item{cart.size !== 1 ? 's' : ''} in cart</span>
+              <span className="theme-e-footer-total">{formatPrice(total)}</span>
             </div>
             <button
               onClick={() => navigate('/checkout')}
-              className="theme-d-footer-checkout-btn"
+              className="theme-e-footer-checkout-btn"
             >
               Checkout
             </button>

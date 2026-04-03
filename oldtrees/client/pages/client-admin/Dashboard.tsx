@@ -97,6 +97,21 @@ import UpgradePlanModal from "@/components/ui/upgrade-plan-modal";
 import { Toaster, toast } from "sonner";
 import { useTenant } from "@/hooks/use-tenant";
 
+// type TabType =
+//   | "dashboard"
+//   | "products"
+//   | "orders"
+//   | "customers"
+//   | "discounts"
+//   | "appearance"
+//   | "settings"
+//   | "categories"
+//   | "seo"
+//   | "pages"
+//   | "blog"
+//   | "contact-us"
+//   | "payment-info"
+//     "email-settings";
 type TabType =
   | "dashboard"
   | "products"
@@ -110,8 +125,8 @@ type TabType =
   | "pages"
   | "blog"
   | "contact-us"
-  | "payment-info";
-
+  | "payment-info"
+  | "email-settings";
 export default function ClientAdminDashboard() {
   const navigate = useNavigate();
   const { logout, handleTokenError } = useAuth();
@@ -239,7 +254,7 @@ export default function ClientAdminDashboard() {
   const [showUpgradePlanModal, setShowUpgradePlanModal] = useState(false);
   const [upgradePromptMessage, setUpgradePromptMessage] = useState<string>("");
   const [upgradingBillingPlan, setUpgradingBillingPlan] = useState(false);
-
+  const [bizDetails, setBizDetails] = useState<any>(null);
   // Pages & Blog
   const [pages, setPages] = useState<any[]>([]);
   const [pagesPage, setPagesPage] = useState(1);
@@ -295,6 +310,7 @@ export default function ClientAdminDashboard() {
   const [editingSliderId, setEditingSliderId] = useState<string | null>(null);
   const [sliderForm, setSliderForm] = useState({
     imageUrl: "",
+    imageFile: null as File | null,
     title: "",
     subtitle: "",
     ctaText: "",
@@ -332,7 +348,7 @@ export default function ClientAdminDashboard() {
   // Email Settings
   const [emailSettingsForm, setEmailSettingsForm] = useState({
     smtp_host: "",
-    smtp_port: "",
+    smtp_port: 0,
     smtp_username: "",
     smtp_password: "",
     sender_email: "",
@@ -963,6 +979,8 @@ export default function ClientAdminDashboard() {
           youtubeUrl: bizDetails.data.youtube_url || "",
           instagramUrl: bizDetails.data.instagram_url || "",
           facebookUrl: bizDetails.data.facebook_url || "",
+          logo: bizDetails.data.logo || "",
+          logoFile: null,
         });
       }
     } catch (error) {
@@ -3688,6 +3706,7 @@ export default function ClientAdminDashboard() {
                           setEditingSliderId(null);
                           setSliderForm({
                             imageUrl: "",
+                            imageFile: null,
                             title: "",
                             subtitle: "",
                             ctaText: "",
@@ -3743,6 +3762,7 @@ export default function ClientAdminDashboard() {
                                       ctaUrl: s.cta_url || "",
                                       sortOrder: s.sort_order || 0,
                                       isActive: s.is_active,
+                                      imageFile: null,
                                     });
                                     setShowSliderModal(true);
                                   }}
@@ -3849,7 +3869,7 @@ export default function ClientAdminDashboard() {
                                 setSliderForm({
                                   ...sliderForm,
                                   imageUrl: sliderForm.imageUrl,
-                                  imageFile: f,
+                                  imageFile:  null as File | null,
                                 });
                               }}
                             />
@@ -5430,7 +5450,7 @@ export default function ClientAdminDashboard() {
                             onChange={(e) =>
                               setEmailSettingsForm({
                                 ...emailSettingsForm,
-                                smtp_port: e.target.value,
+                                smtp_port:Number( e.target.value),
                               })
                             }
                             placeholder="587"

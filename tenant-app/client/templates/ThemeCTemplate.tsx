@@ -105,7 +105,7 @@ export default function ThemeCTemplate() {
         const extractedCategories = Array.from(new Set(result.data.map((p) => p.category).filter(Boolean))) as string[];
         setCategories(extractedCategories);
 
-        const config = await getStorefrontConfig(tenantId);
+        const config: any = await getStorefrontConfig(tenantId);
         if (config?.seo?.minOrderAmount) {
           setMinOrderAmount(config.seo.minOrderAmount);
         }
@@ -122,7 +122,7 @@ export default function ThemeCTemplate() {
             setTenantName(config.theme.companyName);
           }
           if (config?.theme?.logo) {
-            setTenantLogo(toAbsoluteUrl(config.theme.logo));
+            setTenantLogo(toAbsoluteUrl(config.theme.logo)?? null);
           }
         } catch (err) {
           console.warn("Could not load business details:", err);

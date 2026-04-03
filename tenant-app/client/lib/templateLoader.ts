@@ -1,4 +1,4 @@
-export type TemplateName = "theme-a" | "theme-b" | "theme-c" | "theme-d";
+export type TemplateName = "theme-a" | "theme-b" | "theme-c" | "theme-d" | "theme-e";
 
 export interface TemplateInfo {
   id: TemplateName;
@@ -57,6 +57,17 @@ export const TEMPLATES: Record<TemplateName, TemplateInfo> = {
       accent: "#c084fc",
     },
   },
+  "theme-e": {
+    id: "theme-e",
+    name: "Theme E - Modern Showcase",
+    description: "Contemporary design with clean lines and modern aesthetics. Features minimalist product displays, subtle animations, and a sleek user interface. Perfect for tech-savvy audiences and modern retail environments.",
+    preview: "Clean header, minimalist product grid, subtle animations, modern UI elements",
+    colors: {
+      primary: "#7c3aed",
+      secondary: "#6d28d9",
+      accent: "#c084fc",
+    },
+  },
 };
 
 export async function loadTemplate(templateId: TemplateName) {
@@ -74,6 +85,9 @@ export async function loadTemplate(templateId: TemplateName) {
         break;
       case "theme-d":
         component = await import("../templates/ThemeDTemplate");
+        break;
+       case "theme-e":
+        component = await import("../templates/ThemeETemplate");
         break;
       default:
         component = await import("../templates/ThemeBTemplate");
