@@ -94,6 +94,225 @@ async function seedDatabase() {
       console.log("⏭️  Super Admin already exists\n");
     }
 
+    // Seed pricing plans
+    console.log("💰 Seeding pricing plans...");
+    const samplePricingPlans = [
+      {
+        name: "Starter",
+        description: "Perfect for small businesses getting started",
+        price: 2999,
+        currency: "₹",
+        billingPeriod: "month",
+        features: [
+          "Up to 2 products",
+          "up to 10 categories",
+          "up to 100 customers",  
+          "up to 10 orders",
+          "up to 10 pages",
+          "up to 10 blog posts",
+          "up to 10 discounts",
+          "up to 10 templates",
+        ]
+      },
+      {
+        name: "Professional",
+        description: "Ideal for growing businesses",
+        price: 7999,
+        currency: "₹",
+        billingPeriod: "month",
+        features: [
+          "Up to 2 products",
+          "up to 50 categories",
+          "up to 50 customers",  
+          "up to 50 orders",
+          "up to 50 pages",
+          "up to 50 blog posts",
+          "up to 50 discounts",
+          "up to 50 templates",
+         
+        ]
+      },
+      {
+        name: "Enterprise",
+        description: "For large businesses with high volume",
+        price: 19999,
+        currency: "₹",
+        billingPeriod: "month",
+        features: [
+          "Up to 2 products",
+          "up to 500 categories",
+          "up to 500 customers",  
+          "up to 500 orders",
+          "up to 500 pages",
+          "up to 500 blog posts",
+          "up to 500 discounts",
+          "up to 50 templates",
+        ]
+      },
+      {
+        name: "Yearly Starter",
+        description: "Annual plan for small businesses",
+        price: 29990,
+        currency: "₹",
+        billingPeriod: "year",
+        features: [
+         "unlimited products",
+         "unlimited categories",
+         "unlimited customers",
+          "unlimited orders",
+          "unlimited pages",
+          "unlimited blog posts",
+          "unlimited discounts",
+          "unlimited templates",
+
+        ]
+      },
+      
+    ];
+
+    for (const plan of samplePricingPlans) {
+      const [existingPlan] = await connection.execute(
+        "SELECT id FROM pricing WHERE name = ?",
+        [plan.name]
+      );
+
+      if (Array.isArray(existingPlan) && existingPlan.length === 0) {
+        const planId = uuidv4();
+        await connection.execute(
+          `INSERT INTO pricing (id, name, description, price, currency, billing_period, features, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)`,
+          [
+            planId,
+            plan.name,
+            plan.description,
+            plan.price,
+            plan.currency,
+            plan.billingPeriod,
+            JSON.stringify(plan.features)
+          ]
+        );
+        console.log(`✅ Pricing plan created: ${plan.name}`);
+      } else {
+        console.log(`⏭️  Pricing plan "${plan.name}" already exists`);
+      }
+    }
+    console.log("✅ Pricing plans seeded\n");
+
+    // Seed feature categories
+    console.log("📂 Seeding feature categories...");
+    const sampleFeatureCategories = [
+      {
+        name: "Products",
+        categories: [
+          "up to 2 products",
+          "up to 10 products",
+          "up to 50 products",
+          "up to 500 products",
+          "unlimited products"
+        ]
+      },
+      {
+        name: "Orders",
+        categories: [
+          "up to 2 orders",
+          "up to 10 orders",
+          "up to 50 orders",
+          "up to 500 orders",
+        ]
+      },
+      {
+        name: "Categories",
+        categories: [
+          "up to 2 categories",
+          "up to 10 categories",
+          "up to 100 categories",
+          "up to 500 categories",
+          "unlimited categories",
+        ]
+      },
+      {
+        name: "Customers",
+        categories: [
+          "up to 2 customers",
+          "up to 10 customers",
+          "up to 100 customers",
+          "up to 500 customers",
+          "unlimited customers"
+        ]
+      },
+      {
+        name: "Discounts",
+        categories: [
+            "up to 2 discounts",
+          "up to 10 discounts",
+          "up to 100 discounts",
+          "up to 1000 discounts",
+          "unlimited discounts"
+        ]
+      },
+      {
+        name: "Pages",
+        categories: [
+          "up to 2 pages",
+          "up to 10 pages",
+          "up to 100 pages",
+          "up to 500 pages",
+          "unlimited pages"
+        ]
+      },
+      {
+        name: "Blog Posts",
+        categories: [
+          "up to 2 blog posts",
+          "up to 10 blog posts",
+          "up to 100 blog posts",
+          "up to 500 blog posts",
+          "unlimited blog posts"
+        ]
+      },
+      
+      {
+        name: "Email Settings",
+        categories: [
+         0
+        ]
+      },
+      {
+        name: "Store Templates",
+        categories: [
+          "up to 2 Templates",
+          "up to 10 Templates",
+          "up to 100 Templates",
+          "up to 500 Templates",
+          "unlimited Templates"
+        ]
+      }
+    ];
+
+    for (const category of sampleFeatureCategories) {
+      const [existingCategory] = await connection.execute(
+        "SELECT id FROM feature_categories WHERE name = ?",
+        [category.name]
+      );
+
+      if (Array.isArray(existingCategory) && existingCategory.length === 0) {
+        const categoryId = uuidv4();
+        await connection.execute(
+          `INSERT INTO feature_categories (id, name, categories, is_active)
+           VALUES (?, ?, ?, TRUE)`,
+          [
+            categoryId,
+            category.name,
+            JSON.stringify(category.categories)
+          ]
+        );
+        console.log(`✅ Feature category created: ${category.name}`);
+      } else {
+        console.log(`⏭️  Feature category "${category.name}" already exists`);
+      }
+    }
+    console.log("✅ Feature categories seeded\n");
+
     // Create sample tenants
     for (const tenant of sampleTenants) {
       const [tenantExists] = await connection.execute(
