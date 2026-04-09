@@ -311,36 +311,44 @@
 }
 
 .theme-c-product-card {
-  background: white;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid #e0e0e0;
+  transition: transform 0.2s;
 }
 
 .theme-c-product-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 24px rgba(26, 115, 232, 0.15);
-  border-color: #1a73e8;
+  transform: translateY(-3px);
 }
 
+
 .theme-c-card-image-wrapper {
-  position: relative;
+  width: 100%;
+  height: 180px;
   overflow: hidden;
-  height: 200px;
-  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9f9f9;
+  cursor: pointer;
 }
 
 .theme-c-card-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.4s ease;
+  transition: transform 0.3s;
 }
 
-.theme-c-product-card:hover .theme-c-card-image {
-  transform: scale(1.08);
+.theme-c-card-image-wrapper:hover .theme-c-card-image {
+  transform: scale(1.05);
+}
+
+.theme-c-card-placeholder {
+  color: #aaa;
 }
 
 .theme-c-card-content {

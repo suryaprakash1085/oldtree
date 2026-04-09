@@ -708,6 +708,21 @@ export async function uploadProductImage(file: File, tenantId?: string) {
   return response.json();
 }
 
+// Upload Hero Slider Image
+export async function uploadHeroSliderImage(file: File, tenantId?: string) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await apiFetch(buildClientAdminUrl("/upload-hero-image", tenantId), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+    body: formData,
+  });
+  return response.json();
+}
+
 // Theme Customization
 export async function getTenantThemeCustomization(tenantId?: string) {
   const response = await apiFetch(buildClientAdminUrl("/theme-customization", tenantId), {

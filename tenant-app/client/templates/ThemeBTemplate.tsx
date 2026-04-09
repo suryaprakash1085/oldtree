@@ -119,7 +119,7 @@ export default function ThemeBTemplate() {
         setCurrentPage(1);
         setTotalPages(result.pagination.pages);
 
-        const config = await getStorefrontConfig(tenantId);
+        const config: any = await getStorefrontConfig(tenantId);
         if (config?.seo?.minOrderAmount) {
           setMinOrderAmount(config.seo.minOrderAmount);
         }
@@ -137,7 +137,7 @@ export default function ThemeBTemplate() {
             setTenantName(config.theme.companyName);
           }
           if (config?.theme?.logo) {
-            setTenantLogo(toAbsoluteUrl(config.theme.logo));
+            setTenantLogo(toAbsoluteUrl(config.theme.logo)?? null);
           }
         } catch (err) {
           console.warn("Could not load business details:", err);
