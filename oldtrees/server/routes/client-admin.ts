@@ -1596,6 +1596,34 @@ export const uploadProductImage: RequestHandler = async (req, res) => {
   }
 };
 
+// Upload Hero Slider Image
+export const uploadHeroSliderImage: RequestHandler = async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    const filename = req.file.filename;
+    const imageUrl = `/uploads/${filename}`;
+
+    res.json({
+      success: true,
+      data: {
+        imageUrl,
+        filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  } catch (error) {
+    console.error("Upload hero slider image error:", error);
+    res.status(500).json({ error: "Failed to upload image" });
+  }
+};
+
 // Hero Sliders management
 export const getHeroSliders: RequestHandler = async (req, res) => {
   try {
@@ -1617,12 +1645,9 @@ export const createHeroSlider: RequestHandler = async (req, res) => {
   try {
     const tenantId = (req as any).tenantId;
     const { imageUrl, title, subtitle, ctaText, ctaUrl, sortOrder } = req.body;
-    if (!imageUrl) {
-      res.status(400).json({ error: 'imageUrl required' });
-      return;
-    }
+    // Allow empty imageUrl for now - user can upload later
     const id = uuidv4();
-    await query(`INSERT INTO hero_sliders (id, tenant_id, image_url, title, subtitle, cta_text, cta_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)` , [id, tenantId, imageUrl, title || null, subtitle || null, ctaText || null, ctaUrl || null, sortOrder || 0]);
+    await query(`INSERT INTO hero_sliders (id, tenant_id, image_url, title, subtitle, cta_text, cta_url, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)` , [id, tenantId, imageUrl || null, title || null, subtitle || null, ctaText || null, ctaUrl || null, sortOrder || 0]);
     const newRow = await query('SELECT * FROM hero_sliders WHERE id = ?', [id]);
     res.json({ success: true, data: Array.isArray(newRow) ? newRow[0] : null });
   } catch (err) {
@@ -2045,6 +2070,17 @@ export const getAvailableTemplates: RequestHandler = async (req, res) => {
           accent: "#c084fc",
         },
       },
+      {
+        id: "theme-e",
+        name: "Theme E - Modern Showcase",
+        description: "Contemporary modern showcase design layout for retail stores. Includes clean card-based product galleries, bold gradient header, category hero and advanced quick actions for 2026 sales events.",
+        preview: "Bright gradient hero, white product card grid, modern commerce interface",
+        colors: {
+          primary: "#7c3aed",
+          secondary: "#6d28d9",
+          accent: "#c084fc",
+        },
+      },
     ];
 
     res.json({
@@ -2163,7 +2199,7 @@ export const setTenantTemplate: RequestHandler = async (req, res) => {
       return;
     }
 
-    const validTemplates = ["theme-a", "theme-b", "theme-c", "theme-d"];
+    const validTemplates = ["theme-a", "theme-b", "theme-c", "theme-d", "theme-e"];
     if (!validTemplates.includes(template)) {
       res.status(400).json({ error: "Invalid template" });
       return;

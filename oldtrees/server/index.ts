@@ -824,6 +824,20 @@ export function createServer() {
     clientAdminRoutes.uploadProductImage,
   );
 
+  app.post(
+    "/api/client-admin/upload-hero-image",
+    authMiddleware,
+    upload.single("image"),
+    clientAdminRoutes.uploadHeroSliderImage,
+  );
+  app.post(
+    "/api/client-admin/:tenantId/upload-hero-image",
+    authMiddleware,
+    tenantMiddleware,
+    upload.single("image"),
+    clientAdminRoutes.uploadHeroSliderImage,
+  );
+
   app.get(
     "/api/client-admin/staff",
     authMiddleware,
@@ -983,6 +997,9 @@ export function createServer() {
   // Public content: contact us and payment info
   app.get("/api/store/:tenantId/contact-us", domainValidationMiddleware, storefrontRoutes.getContactUsPublic);
   app.get("/api/store/:tenantId/payment-info", domainValidationMiddleware, storefrontRoutes.getPaymentInfoPublic);
+
+  // Upload price list for theme customization
+  app.post("/api/upload-price-list", upload.single("file"), storefrontRoutes.uploadPriceList);
 
   // Global error handler middleware
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

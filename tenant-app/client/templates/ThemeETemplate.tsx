@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+
 import { getStorefrontProductsWithPagination, createOrder, getStorefrontConfig, validateDiscount, getPublishedPages, getBlogPosts, getHeroSliders, getContactUs, getPaymentInfo } from "@/lib/api";
 import { getTenantIdFromEnv, getTenantNameFromEnv, formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
@@ -48,12 +49,12 @@ export default function ThemeETemplate() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [priceListUrl, setPriceListUrl] = useState<any>(null);
+  const [priceListUrl, setPriceListUrl] = useState<string | null>(null);
   const searchSectionRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [contactUs, setContactUs] = useState<any>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
-
+ 
   useEffect(() => {
     const loadPersistedCart = () => {
       try {
@@ -95,6 +96,7 @@ export default function ThemeETemplate() {
       try {
         setLoading(true);
         const result = await getStorefrontProductsWithPagination(tenantId, { page: 1, limit: 20 });
+        console.log("Products from API:", result.data);
         setProducts(result.data);
         setCurrentPage(1);
         setTotalPages(result.pagination.pages);
@@ -102,7 +104,6 @@ export default function ThemeETemplate() {
         const extractedCategories = Array.from(new Set(result.data.map((p) => p.category).filter(Boolean))) as string[];
         setCategories(extractedCategories);
 
-        // const config = await getStorefrontConfig(tenantId);
         const config: any = await getStorefrontConfig(tenantId);
         if (config?.seo?.minOrderAmount) {
           setMinOrderAmount(config.seo.minOrderAmount);
@@ -120,7 +121,7 @@ export default function ThemeETemplate() {
             setTenantName(config.theme.companyName);
           }
           if (config?.theme?.logo) {
-            setTenantLogo(toAbsoluteUrl(config.theme.logo) ?? null);
+            setTenantLogo(toAbsoluteUrl(config.theme.logo)?? null);
           }
         } catch (err) {
           console.warn("Could not load business details:", err);
@@ -141,10 +142,10 @@ export default function ThemeETemplate() {
 
         try {
           setSocialLinks({
-          youtube: config?.business?.youtubeUrl ?? "",
-          instagram: config?.business?.instagramUrl ?? "",
-          facebook: config?.business?.facebookUrl ?? "",
-});
+            youtube: config?.business?.youtubeUrl || "",
+            instagram: config?.business?.instagramUrl || "",
+            facebook: config?.business?.facebookUrl || "",
+          });
         } catch (err) {
           console.warn("Could not load social media links:", err);
         }
@@ -416,6 +417,7 @@ export default function ThemeETemplate() {
             <table className="theme-e-products-table">
               <thead>
                 <tr className="theme-e-table-header">
+                  <th>Icon</th>
                   <th>Product Name</th>
                   <th>Description</th>
                   <th>Price</th>
@@ -423,48 +425,63 @@ export default function ThemeETemplate() {
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredProducts.map((product, idx) => (
-                  <tr key={product.id} className={`theme-e-table-row ${idx % 2 === 0 ? 'even' : 'odd'}`}>
-                    <td className="theme-e-product-name">
-                      {product.imageUrl && (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          className="theme-e-product-img"
-                          onClick={() => setLightboxImage(product.imageUrl || null)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      )}
-                      <span>{product.name}</span>
-                    </td>
-                    <td className="theme-e-product-desc">{product.description}</td>
-                    <td className="theme-e-product-price">{formatPrice(product.price)}</td>
-                    <td className="theme-e-product-stock">
-                      {product.stock_quantity > 0 ? (
-                        <span className="theme-e-in-stock">In Stock ({product.stock_quantity})</span>
-                      ) : (
-                        <span className="theme-e-out-stock">Out of Stock</span>
-                      )}
-                    </td>
-                    <td className="theme-e-actions">
-                      <button
-                        onClick={() => addToCart(product.id)}
-                        disabled={product.stock_quantity === 0}
-                        className="theme-e-add-btn"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => toggleWishlistItem(product.id)}
-                        className={`theme-e-favorite-btn ${wishlist.has(product.id) ? 'active' : ''}`}
-                      >
-                        <Heart size={16} fill={wishlist.has(product.id) ? "currentColor" : "none"} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+            <tbody>
+  {filteredProducts.map((product, idx) => (
+    <tr key={product.id} className={`theme-e-table-row ${idx % 2 === 0 ? 'even' : 'odd'}`}>
+      
+      {/* ICON COLUMN */}
+      <td className="theme-e-product-icon">
+  {product.imageUrl ? (
+    <img
+      src={toUrl(product.imageUrl)}
+      alt={product.name}
+      className="theme-e-product-img"
+      onClick={() => setLightboxImage(toUrl(product.imageUrl) || null)}
+      style={{ cursor: "pointer" }}
+    />
+  ) : (
+    <Package size={28} />
+  )}
+</td>
+
+      {/* PRODUCT NAME */}
+      <td className="theme-e-product-name">{product.name}</td>
+
+      {/* DESCRIPTION */}
+      <td className="theme-e-product-desc">{product.description}</td>
+
+      {/* PRICE */}
+      <td className="theme-e-product-price">{formatPrice(product.price)}</td>
+
+      {/* STOCK */}
+      <td className="theme-e-product-stock">
+        {product.stock_quantity > 0 ? (
+          <span className="theme-e-in-stock">In Stock ({product.stock_quantity})</span>
+        ) : (
+          <span className="theme-e-out-stock">Out of Stock</span>
+        )}
+      </td>
+
+      {/* ACTIONS */}
+      <td className="theme-e-actions">
+        <button
+          onClick={() => addToCart(product.id)}
+          disabled={product.stock_quantity === 0}
+          className="theme-e-add-btn"
+        >
+          Add
+        </button>
+        <button
+          onClick={() => toggleWishlistItem(product.id)}
+          className={`theme-e-favorite-btn ${wishlist.has(product.id) ? 'active' : ''}`}
+        >
+          <Heart size={16} fill={wishlist.has(product.id) ? "currentColor" : "none"} />
+        </button>
+      </td>
+
+    </tr>
+  ))}
+</tbody>
             </table>
           </div>
         )}
@@ -640,9 +657,7 @@ export default function ThemeETemplate() {
                   {products.filter(p => wishlist.has(p.id)).map((product) => (
                     <div key={product.id} className="theme-e-wishlist-item">
                       <div className="theme-e-wishlist-image">
-                        {product.imageUrl && (
-                          <img src={product.imageUrl} alt={product.name} />
-                        )}
+                        <img src={toUrl(product.imageUrl)} alt={product.name} />
                       </div>
                       <div className="theme-e-wishlist-details">
                         <h4>{product.name}</h4>

@@ -378,17 +378,16 @@ export default function ThemeCTemplate() {
           <div className="theme-c-products-grid">
             {filteredProducts.map((product) => (
               <div key={product.id} className="theme-c-product-card">
-                <div className="theme-c-card-image-wrapper" onClick={() => navigate('/products')} style={{ cursor: 'pointer' }}>
-                  {product.imageUrl && (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="theme-c-card-image"
-                      onClick={(e) => { e.stopPropagation(); setLightboxImage(product.imageUrl || null); }}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  )}
-                </div>
+        <div className="theme-c-card-image-wrapper">
+  {product.imageUrl && (
+    <img
+      src={toUrl(product.imageUrl)}
+      alt={product.name}
+      className="theme-c-card-image"
+      onClick={() => setLightboxImage(toUrl(product.imageUrl) || null)}
+    />
+  )}
+</div>
                 <div className="theme-c-card-content">
                   <h3 className="theme-c-card-title" onClick={() => navigate('/products')} style={{ cursor: 'pointer', color: 'inherit' }}>
                     {product.name}

@@ -909,3 +909,63 @@ export const getPaymentInfoPublic: RequestHandler = async (req, res) => {
     res.json({ success: true, data: null });
   }
 };
+
+// Upload price list file for theme customization
+export const uploadPriceList: RequestHandler = async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv'
+    ];
+
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      res.status(400).json({
+        error: "Invalid file type. Only PDF, Excel (.xls, .xlsx), and CSV files are allowed",
+        code: "INVALID_FILE_TYPE"
+      });
+      return;
+    }
+
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024;
+    if (req.file.size > maxSize) {
+      res.status(400).json({
+        error: "File too large. Maximum size is 10MB",
+        code: "FILE_TOO_LARGE"
+      });
+      return;
+    }
+
+    const filename = req.file.filename;
+    const fileUrl = `/uploads/${filename}`;
+
+    console.log(`Price list uploaded successfully: ${filename}, size: ${req.file.size}, type: ${req.file.mimetype}`);
+
+    res.json({
+      success: true,
+      data: {
+        url: fileUrl,
+        filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+      },
+    });
+  } catch (error) {
+    console.error("Upload price list error:", error);
+    res.status(500).json({
+      error: "Failed to upload price list",
+      code: "UPLOAD_ERROR",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

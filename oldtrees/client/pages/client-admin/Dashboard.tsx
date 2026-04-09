@@ -61,6 +61,7 @@ import {
   getAllThemes,
   getTenantByDomain,
   uploadProductImage,
+  uploadHeroSliderImage,
   getHeroSliders,
   createHeroSlider,
   updateHeroSlider,
@@ -3812,8 +3813,9 @@ export default function ClientAdminDashboard() {
                             try {
                               let imageUrl = sliderForm.imageUrl;
                               if ((sliderForm as any).imageFile) {
-                                const resp = await uploadProductImage(
+                                const resp = await uploadHeroSliderImage(
                                   (sliderForm as any).imageFile,
+                                  tenantId || undefined,
                                 );
                                 imageUrl = resp.data?.imageUrl || imageUrl;
                               }
@@ -3868,8 +3870,7 @@ export default function ClientAdminDashboard() {
                                   : null;
                                 setSliderForm({
                                   ...sliderForm,
-                                  imageUrl: sliderForm.imageUrl,
-                                  imageFile:  null as File | null,
+                                  imageFile: f,
                                 });
                               }}
                             />

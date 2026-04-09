@@ -121,7 +121,7 @@ export async function loadTemplate(templateId: TemplateName) {
               : errorMsg
           }`
         );
-      }
+      }[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]
     }
     throw error;
   }
