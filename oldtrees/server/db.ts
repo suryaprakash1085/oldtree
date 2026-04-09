@@ -1086,15 +1086,15 @@ export async function initializeDatabase() {
           [
             paymentId,
             tenantId,
-            "COBRA TRADERS",
-            "41813993341",
+            "Crk",
+            "4185969993341",
             "State Bank of India",
-            "SBIN0000975",
+            "SBIN00000045",
             "Sivakasi",
-            "Soundharya",
-            "9344746164",
-            "Harisudhan",
-            "9677833373@gopherrc"
+            "kaviya",
+            "99999xxxxx",
+            "test",
+            "9999999999@gopherrc"
           ]
         );
         console.log("✅ Payment Info data created");

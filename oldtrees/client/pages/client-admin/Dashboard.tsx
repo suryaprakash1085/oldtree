@@ -5161,7 +5161,7 @@ export default function ClientAdminDashboard() {
                               bank_account_name: e.target.value,
                             })
                           }
-                          placeholder="COBRA TRADERS"
+                          placeholder="Crackers"
                         />
                       </div>
                       <div>
@@ -5176,7 +5176,7 @@ export default function ClientAdminDashboard() {
                               bank_account_number: e.target.value,
                             })
                           }
-                          placeholder="41813993341"
+                          placeholder="67890987567890"
                         />
                       </div>
                       <div>
@@ -5206,7 +5206,7 @@ export default function ClientAdminDashboard() {
                               ifsc_code: e.target.value,
                             })
                           }
-                          placeholder="SBIN0000975"
+                          placeholder="788459578998"
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -5244,7 +5244,7 @@ export default function ClientAdminDashboard() {
                               gpay_name: e.target.value,
                             })
                           }
-                          placeholder="Soundharya"
+                          placeholder="kannan"
                         />
                       </div>
                       <div>
@@ -5259,7 +5259,7 @@ export default function ClientAdminDashboard() {
                               gpay_number: e.target.value,
                             })
                           }
-                          placeholder="9344746164"
+                          placeholder="99999xxxxx"
                         />
                       </div>
                     </div>
@@ -5282,7 +5282,7 @@ export default function ClientAdminDashboard() {
                               upi_name: e.target.value,
                             })
                           }
-                          placeholder="Harisudhan"
+                          placeholder="test"
                         />
                       </div>
                       <div>
@@ -5297,7 +5297,7 @@ export default function ClientAdminDashboard() {
                               upi_id: e.target.value,
                             })
                           }
-                          placeholder="9677833373@gopherrc"
+                          placeholder="999999999@gopherrc"
                         />
                       </div>
                     </div>
