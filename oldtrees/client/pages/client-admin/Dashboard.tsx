@@ -29,6 +29,8 @@ import {
   Phone,
   CreditCard,
   Mail,
+  Upload,
+  Download,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -164,6 +166,9 @@ export default function ClientAdminDashboard() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null,
   );
@@ -1134,6 +1139,153 @@ export default function ClientAdminDashboard() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const ExcelJS = await import("exceljs");
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Products");
+
+      // Add header row with required columns
+      const headers = ["Name", "SKU", "Price", "Category", "Stock Quantity", "Description", "Cost Price", "Image URL"];
+      worksheet.addRow(headers);
+
+      // Style header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF366092" } };
+      headerRow.alignment = { horizontal: "center", vertical: "center" };
+
+      // Set column widths
+      worksheet.columns = [
+        { width: 25 }, // Name
+        { width: 15 }, // SKU
+        { width: 12 }, // Price
+        { width: 15 }, // Category
+        { width: 15 }, // Stock Quantity
+        { width: 30 }, // Description
+        { width: 12 }, // Cost Price
+        { width: 25 }, // Image URL
+      ];
+
+      // Add sample data rows (3 empty rows for user to fill)
+      for (let i = 0; i < 3; i++) {
+        worksheet.addRow(Array(headers.length).fill(""));
+      }
+
+      // Generate Excel file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Products-Template-${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      toast.success("Template downloaded successfully!");
+    } catch (error) {
+      console.error("Download template error:", error);
+      toast.error("Failed to download template");
+    }
+  };
+
+  const handleBulkUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkUploadFile) {
+      return toast.error("Please select a file");
+    }
+
+    setBulkUploadLoading(true);
+    try {
+      const WorkbookType = (await import("exceljs")).Workbook;
+      const workbook = new WorkbookType();
+      const arrayBuffer = await bulkUploadFile.arrayBuffer();
+      await workbook.xlsx.load(arrayBuffer);
+
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        return toast.error("No data found in the file");
+      }
+
+      // Get header row
+      const headers: string[] = [];
+      worksheet.getRow(1).eachCell((cell) => {
+        headers.push(String(cell.value || "").toLowerCase().trim());
+      });
+
+      // Map column indices
+      const nameIdx = headers.indexOf("name");
+      const skuIdx = headers.indexOf("sku");
+      const priceIdx = headers.indexOf("price");
+      const categoryIdx = headers.indexOf("category");
+      const stockIdx = headers.indexOf("stock quantity");
+      const descIdx = headers.indexOf("description");
+      const costPriceIdx = headers.indexOf("cost price");
+      const imageUrlIdx = headers.indexOf("image url");
+
+      if (nameIdx === -1 || priceIdx === -1) {
+        return toast.error("Excel file must contain 'Name' and 'Price' columns");
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 2; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i);
+        const name = String(row.getCell(nameIdx + 1).value || "").trim();
+        const price = row.getCell(priceIdx + 1).value;
+
+        // Skip empty rows
+        if (!name || !price) continue;
+
+        try {
+          const priceNum = parseFloat(String(price));
+          if (isNaN(priceNum) || priceNum <= 0) {
+            errors.push(`Row ${i}: Invalid price`);
+            errorCount++;
+            continue;
+          }
+
+          const productData = {
+            name,
+            sku: skuIdx !== -1 ? String(row.getCell(skuIdx + 1).value || "").trim() : "",
+            price: priceNum,
+            category: categoryIdx !== -1 ? String(row.getCell(categoryIdx + 1).value || "").trim() : "",
+            stockQuantity: stockIdx !== -1 ? parseInt(String(row.getCell(stockIdx + 1).value || "0")) || 0 : 0,
+            description: descIdx !== -1 ? String(row.getCell(descIdx + 1).value || "").trim() : "",
+            costPrice: costPriceIdx !== -1 ? parseFloat(String(row.getCell(costPriceIdx + 1).value || "0")) || undefined : undefined,
+            imageUrl: imageUrlIdx !== -1 ? String(row.getCell(imageUrlIdx + 1).value || "").trim() : "",
+          };
+
+          await createClientProduct(productData, tenantId || undefined);
+          successCount++;
+        } catch (err) {
+          errorCount++;
+          errors.push(`Row ${i}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} product(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to upload ${errorCount} product(s)`);
+      }
+      if (errors.length > 0 && errors.length <= 3) {
+        errors.forEach(err => console.error(err));
+      }
+
+      setShowBulkUploadModal(false);
+      setBulkUploadFile(null);
+      await fetchTabData("products", true);
+    } catch (error) {
+      console.error("Bulk upload error:", error);
+      toast.error("Failed to process file. Ensure it's a valid Excel file.");
+    } finally {
+      setBulkUploadLoading(false);
+    }
+  };
+
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1760,6 +1912,344 @@ export default function ClientAdminDashboard() {
     }
   };
 
+  const handleDownloadOrderPDF = (order: any) => {
+    try {
+      // Get company details from businessDetails state
+      const companyName = businessDetails?.companyName || "Flower Shop";
+      const contactEmail = businessDetails?.contactEmail || "";
+      const contactPhone = businessDetails?.contactPhone || "";
+
+      const pdfContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Order Invoice - ${order.order_number}</title>
+          <meta charset="UTF-8">
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              background-color: #f5f5f5;
+              padding: 20px;
+            }
+            .container {
+              max-width: 900px;
+              margin: 0 auto;
+              background: white;
+              padding: 40px;
+              border-radius: 8px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .header {
+              border-bottom: 3px solid #1e40af;
+              padding-bottom: 30px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #1e40af;
+              font-size: 28px;
+              margin-bottom: 10px;
+            }
+            .company-info {
+              color: #666;
+              font-size: 14px;
+              line-height: 1.6;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .section-title {
+              font-size: 14px;
+              font-weight: 700;
+              color: #1e40af;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 15px;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .two-column {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 30px;
+              margin-bottom: 20px;
+            }
+            .info-block {
+              font-size: 14px;
+              line-height: 1.8;
+            }
+            .info-block strong {
+              color: #1f2937;
+              display: block;
+              font-size: 13px;
+              text-transform: uppercase;
+              color: #6b7280;
+              margin-top: 10px;
+              margin-bottom: 5px;
+            }
+            .info-block:first-child strong {
+              margin-top: 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            table th {
+              background-color: #f3f4f6;
+              padding: 12px;
+              text-align: left;
+              font-size: 13px;
+              font-weight: 600;
+              color: #1f2937;
+              border: 1px solid #e5e7eb;
+            }
+            table td {
+              padding: 12px;
+              border: 1px solid #e5e7eb;
+              font-size: 14px;
+            }
+            table tr:nth-child(even) {
+              background-color: #f9fafb;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .summary-table {
+              margin-top: 20px;
+              width: 100%;
+            }
+            .summary-table td {
+              border: none;
+              padding: 8px 0;
+              font-size: 14px;
+            }
+            .summary-table .label {
+              text-align: left;
+              font-weight: 600;
+              width: 70%;
+            }
+            .summary-table .amount {
+              text-align: right;
+              padding-right: 0;
+            }
+            .summary-table .total-row {
+              border-top: 2px solid #1e40af;
+              padding-top: 12px;
+              font-size: 16px;
+              font-weight: 700;
+              color: #1e40af;
+            }
+            .summary-table .discount-row {
+              color: #059669;
+            }
+            .footer {
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              font-size: 12px;
+              color: #6b7280;
+              text-align: center;
+            }
+            .badge {
+              display: inline-block;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            .badge-pending {
+              background-color: #fef3c7;
+              color: #92400e;
+            }
+            .badge-processing {
+              background-color: #dbeafe;
+              color: #1e40af;
+            }
+            .badge-shipped {
+              background-color: #e9d5ff;
+              color: #6b21a8;
+            }
+            .badge-delivered {
+              background-color: #dcfce7;
+              color: #166534;
+            }
+            @media print {
+              body {
+                background: white;
+                padding: 0;
+              }
+              .container {
+                box-shadow: none;
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📋 Invoice</h1>
+              <div class="company-info">
+                <p><strong>${companyName}</strong></p>
+                ${contactEmail ? `<p>Email: ${contactEmail}</p>` : ""}
+                ${contactPhone ? `<p>Phone: ${contactPhone}</p>` : ""}
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Order Information</div>
+              <div class="two-column">
+                <div class="info-block">
+                  <strong>Order Number</strong>
+                  <p>${order.order_number}</p>
+                </div>
+                <div class="info-block">
+                  <strong>Order Date</strong>
+                  <p>${new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Customer Information</div>
+              <div class="two-column">
+                <div class="info-block">
+                  <strong>Name</strong>
+                  <p>${order.customer_name || 'N/A'}</p>
+                </div>
+                <div class="info-block">
+                  <strong>Email</strong>
+                  <p>${order.customer_email || 'N/A'}</p>
+                </div>
+                <div class="info-block">
+                  <strong>Phone</strong>
+                  <p>${order.customer_phone || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            ${
+              order.shipping_address
+                ? `
+            <div class="section">
+              <div class="section-title">Shipping Address</div>
+              <div class="info-block">
+                <p>${
+                  typeof order.shipping_address === "string"
+                    ? order.shipping_address
+                    : JSON.stringify(order.shipping_address, null, 2)
+                }</p>
+              </div>
+            </div>
+            `
+                : ""
+            }
+
+            <div class="section">
+              <div class="section-title">Order Items</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th class="text-right">Quantity</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(Array.isArray(order.items) ? order.items : [])
+                    .map(
+                      (item: any) => `
+                    <tr>
+                      <td>${item.product_name || `Product (${item.product_id})`}</td>
+                      <td class="text-right">${item.quantity}</td>
+                      <td class="text-right">₹${parseInt(item.unit_price || 0).toLocaleString()}</td>
+                      <td class="text-right"><strong>₹${parseInt(item.total_price || 0).toLocaleString()}</strong></td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Order Summary</div>
+              <table class="summary-table">
+                <tr>
+                  <td class="label">Subtotal</td>
+                  <td class="amount">₹${((order.total_amount || 0) + (order.discount_amount || 0)).toLocaleString()}</td>
+                </tr>
+                ${
+                  (order.discount_amount || 0) > 0
+                    ? `
+                <tr class="discount-row">
+                  <td class="label">Discount</td>
+                  <td class="amount">-₹${order.discount_amount.toLocaleString()}</td>
+                </tr>
+                `
+                    : ""
+                }
+                ${
+                  (order.tax_amount || 0) > 0
+                    ? `
+                <tr>
+                  <td class="label">Tax</td>
+                  <td class="amount">₹${order.tax_amount.toLocaleString()}</td>
+                </tr>
+                `
+                    : ""
+                }
+                <tr class="total-row">
+                  <td class="label">Total Amount</td>
+                  <td class="amount">₹${order.total_amount.toLocaleString()}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Order Status</div>
+              <div class="two-column">
+                <div class="info-block">
+                  <strong>Status</strong>
+                  <p><span class="badge badge-${order.status}">${order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span></p>
+                </div>
+                <div class="info-block">
+                  <strong>Payment Status</strong>
+                  <p><span class="badge badge-${order.payment_status}">${(order.payment_status || 'pending').charAt(0).toUpperCase() + (order.payment_status || 'pending').slice(1)}</span></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>This is an automated invoice. Please do not reply to this email.</p>
+              <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create a blob from the HTML content
+      const blob = new Blob([pdfContent], { type: "text/html;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Order-${order.order_number}-${new Date().toISOString().split('T')[0]}.html`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      toast.success("Invoice downloaded! You can open it in your browser and print to PDF.");
+    } catch (error) {
+      console.error("Failed to download order PDF:", error);
+      toast.error("Failed to download invoice");
+    }
+  };
+
   const handleSaveTemplate = async () => {
     try {
       await setTenantTemplate(selectedTemplate, tenantId);
@@ -2218,15 +2708,27 @@ export default function ClientAdminDashboard() {
                 <h2 className="text-2xl font-bold text-slate-900">
                   Products ({products.length})
                 </h2>
-                <Button
-                  onClick={() => {
-                    setShowProductModal(true);
-                  }}
-                  className="group"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Product
-                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => {
+                      setShowBulkUploadModal(true);
+                    }}
+                    variant="outline"
+                    className="group"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Upload
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowProductModal(true);
+                    }}
+                    className="group"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Product
+                  </Button>
+                </div>
               </div>
 
               {showProductModal && (
@@ -2458,11 +2960,100 @@ export default function ClientAdminDashboard() {
                 </div>
               )}
 
+              {/* Bulk Upload Modal */}
+              {showBulkUploadModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                      <h3 className="text-xl font-bold text-slate-900">
+                        Bulk Upload Products
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowBulkUploadModal(false);
+                          setBulkUploadFile(null);
+                        }}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={handleBulkUpload}
+                      className="p-6 space-y-4"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-900 mb-2">
+                              Upload Excel File
+                            </label>
+                            <p className="text-xs text-slate-600">
+                              Excel file should have columns: Name, SKU, Price, Category, Stock Quantity, Description, Cost Price, Image URL
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleDownloadTemplate}
+                            className="ml-4 whitespace-nowrap"
+                            disabled={bulkUploadLoading}
+                          >
+                            Download Template
+                          </Button>
+                        </div>
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={(e) => {
+                            setBulkUploadFile(e.target.files?.[0] || null);
+                          }}
+                          required
+                          disabled={bulkUploadLoading}
+                          className="w-full border border-slate-300 rounded-lg p-3 disabled:opacity-50"
+                        />
+                        {bulkUploadFile && (
+                          <p className="text-sm text-slate-600 mt-2">
+                            Selected: {bulkUploadFile.name}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3 pt-4">
+                        <Button
+                          type="submit"
+                          className="flex-1"
+                          disabled={!bulkUploadFile || bulkUploadLoading}
+                        >
+                          {bulkUploadLoading ? "Uploading..." : "Upload Products"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowBulkUploadModal(false);
+                            setBulkUploadFile(null);
+                          }}
+                          className="flex-1"
+                          disabled={bulkUploadLoading}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                 {products.length > 0 ? (
                   <table className="w-full">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Image
+                        </th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Name
                         </th>
@@ -2486,6 +3077,19 @@ export default function ClientAdminDashboard() {
                           key={product.id}
                           className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
                         >
+                          <td className="px-6 py-4">
+                            {product.image_url || product.imageUrl ? (
+                              <img
+                                src={product.image_url || product.imageUrl}
+                                alt={product.name}
+                                className="h-16 w-16 object-cover rounded border border-slate-200"
+                              />
+                            ) : (
+                              <div className="h-16 w-16 bg-slate-200 rounded border border-slate-300 flex items-center justify-center">
+                                <Package className="w-6 h-6 text-slate-400" />
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-4 text-slate-900 font-medium">
                             {product.name}
                           </td>
@@ -2878,15 +3482,25 @@ export default function ClientAdminDashboard() {
                             </select>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setShowOrderModal(true);
-                              }}
-                              className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                              <Eye className="w-4 h-4 text-blue-600" />
-                            </button>
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setShowOrderModal(true);
+                                }}
+                                className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="View Order"
+                              >
+                                <Eye className="w-4 h-4 text-blue-600" />
+                              </button>
+                              <button
+                                onClick={() => handleDownloadOrderPDF(order)}
+                                className="p-2 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Download PDF"
+                              >
+                                <Download className="w-4 h-4 text-green-600" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
