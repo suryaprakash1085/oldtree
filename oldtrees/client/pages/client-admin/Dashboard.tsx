@@ -95,7 +95,9 @@ import {
   deleteClientCustomer,
   updateClientDiscount,
   deleteClientDiscount,
+  getCurrentPlanDetails,
 } from "@/lib/api";
+import { getTemplateLimitFromFeatures } from "@/lib/utils";
 import UpgradePlanModal from "@/components/ui/upgrade-plan-modal";
 import { Toaster, toast } from "sonner";
 import { useTenant } from "@/hooks/use-tenant";
@@ -166,9 +168,11 @@ export default function ClientAdminDashboard() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+
+   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
   const [bulkUploadLoading, setBulkUploadLoading] = useState(false);
+
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null,
   );
@@ -261,6 +265,8 @@ export default function ClientAdminDashboard() {
   const [upgradePromptMessage, setUpgradePromptMessage] = useState<string>("");
   const [upgradingBillingPlan, setUpgradingBillingPlan] = useState(false);
   const [bizDetails, setBizDetails] = useState<any>(null);
+  const [currentPlan, setCurrentPlan] = useState<any>(null);
+  const [templateLimit, setTemplateLimit] = useState<number | null>(null);
   // Pages & Blog
   const [pages, setPages] = useState<any[]>([]);
   const [pagesPage, setPagesPage] = useState(1);
@@ -406,19 +412,31 @@ export default function ClientAdminDashboard() {
     }
   };
 
-  const handlePlanLimitError = (error: any): string | null => {
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
-    const normalized = message.toLowerCase();
-    if (
-      normalized.includes("please upgrade your plan") ||
-      normalized.includes("your current plan does not support") ||
-      normalized.includes("limit reached")
-    ) {
-      openUpgradePlanModal(message);
-      return null;
-    }
-    return message;
-  };
+const handlePlanLimitError = (error: any): string | null => {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : error?.message || error?.error || "An unexpected error occurred";
+  
+  const normalized = message.toLowerCase();
+  if (
+    // normalized.includes("please upgrade your plan") ||
+    // normalized.includes("your current plan does not support") ||
+    // normalized.includes("limit reached")
+
+     normalized.includes("please upgrade your plan") ||
+    normalized.includes("your current plan does not support") ||
+    normalized.includes("your current plan") ||  // ✅ ADD THIS
+    normalized.includes("limit reached") ||
+    normalized.includes("you can only create")
+  ) {
+    openUpgradePlanModal(message);
+    return null;
+  }
+  return message;
+};
   const [loadedSections, setLoadedSections] = useState<{
     [key: string]: boolean;
   }>({});
@@ -721,6 +739,20 @@ export default function ClientAdminDashboard() {
               );
             } catch (err) {
               console.error("Failed to load announcement settings:", err);
+            }
+            try {
+              const planDetails = await getCurrentPlanDetails(
+                tenantId || undefined,
+              );
+              if (planDetails.success && planDetails.data) {
+                setCurrentPlan(planDetails.data);
+                const limit = getTemplateLimitFromFeatures(
+                  planDetails.data.features || [],
+                );
+                setTemplateLimit(limit);
+              }
+            } catch (err) {
+              console.error("Failed to load current plan details:", err);
             }
             markLoaded("appearance");
             break;
@@ -1139,7 +1171,8 @@ export default function ClientAdminDashboard() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
+
+   const handleDownloadTemplate = async () => {
     try {
       const ExcelJS = await import("exceljs");
       const workbook = new ExcelJS.Workbook();
@@ -1286,6 +1319,7 @@ export default function ClientAdminDashboard() {
     }
   };
 
+
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1317,16 +1351,13 @@ export default function ClientAdminDashboard() {
       setEditingCategoryId(null);
       setShowCategoryModal(false);
       await fetchTabData("categories", true);
-    } catch (err) {
-      const message = handlePlanLimitError(err);
-      if (message) {
-        toast.error(
-          editingCategoryId
-            ? "Failed to update category"
-            : message,
-        );
-      }
-    }
+   } catch (err) {
+  console.error("Category error:", err);
+  const message = handlePlanLimitError(err);
+  if (message) {
+    toast.error(message || "Failed to save category");
+  }
+}
   };
 
   const handleStartEditCategory = (category: any) => {
@@ -1539,8 +1570,7 @@ export default function ClientAdminDashboard() {
         validUntil: discountForm.validUntil || null,
       };
 
-     
- // Check if we're editing or creating
+      // Check if we're editing or creating
       if (editingDiscountId) {
         await updateClientDiscount(editingDiscountId, discountData, tenantId || undefined);
         toast.success("Discount updated successfully");
@@ -1912,7 +1942,8 @@ export default function ClientAdminDashboard() {
     }
   };
 
-  const handleDownloadOrderPDF = (order: any) => {
+
+    const handleDownloadOrderPDF = (order: any) => {
     try {
       // Get company details from businessDetails state
       const companyName = businessDetails?.companyName || "Flower Shop";
@@ -2250,7 +2281,24 @@ export default function ClientAdminDashboard() {
     }
   };
 
+
   const handleSaveTemplate = async () => {
+    // Check if the selected template is locked
+    const selectedIndex = availableTemplates.findIndex(
+      (t: any) => t.id === selectedTemplate,
+    );
+    if (templateLimit !== null && selectedIndex >= templateLimit) {
+      const currentPlanName = currentPlan?.name || "your plan";
+      openUpgradePlanModal(
+        `This template is not available on your current plan (${currentPlanName}). ${
+          templateLimit
+            ? `Your plan allows access to ${templateLimit} template${templateLimit === 1 ? "" : "s"}.`
+            : ""
+        } Please upgrade your plan to apply this template.`,
+      );
+      return;
+    }
+
     try {
       await setTenantTemplate(selectedTemplate, tenantId);
       toast.success(
@@ -2708,7 +2756,9 @@ export default function ClientAdminDashboard() {
                 <h2 className="text-2xl font-bold text-slate-900">
                   Products ({products.length})
                 </h2>
-                <div className="flex gap-3">
+
+
+                  <div className="flex gap-3">
                   <Button
                     onClick={() => {
                       setShowBulkUploadModal(true);
@@ -2719,16 +2769,17 @@ export default function ClientAdminDashboard() {
                     <Upload className="w-4 h-4 mr-2" />
                     Bulk Upload
                   </Button>
-                  <Button
-                    onClick={() => {
-                      setShowProductModal(true);
-                    }}
-                    className="group"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Product
-                  </Button>
-                </div>
+              
+                <Button
+                  onClick={() => {
+                    setShowProductModal(true);
+                  }}
+                  className="group"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Product
+                </Button>
+                 </div>
               </div>
 
               {showProductModal && (
@@ -2960,7 +3011,9 @@ export default function ClientAdminDashboard() {
                 </div>
               )}
 
-              {/* Bulk Upload Modal */}
+
+
+  {/* Bulk Upload Modal */}
               {showBulkUploadModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -3046,16 +3099,18 @@ export default function ClientAdminDashboard() {
                 </div>
               )}
 
+              
+
               <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                 {products.length > 0 ? (
                   <table className="w-full">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                          Image
-                        </th>
-                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           Name
+                        </th>
+                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                          Image
                         </th>
                         <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                           SKU
@@ -3482,18 +3537,18 @@ export default function ClientAdminDashboard() {
                             </select>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="flex justify-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedOrder(order);
-                                  setShowOrderModal(true);
-                                }}
-                                className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="View Order"
-                              >
-                                <Eye className="w-4 h-4 text-blue-600" />
-                              </button>
-                              <button
+                             <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setShowOrderModal(true);
+                              }}
+                              className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                               title="View Order"
+                            >
+                              <Eye className="w-4 h-4 text-blue-600" />
+                            </button>
+                             <button
                                 onClick={() => handleDownloadOrderPDF(order)}
                                 className="p-2 hover:bg-green-50 rounded-lg transition-colors"
                                 title="Download PDF"
@@ -4210,90 +4265,126 @@ export default function ClientAdminDashboard() {
 
                   {availableTemplates.length > 0 ? (
                     <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-6">
-                      {availableTemplates.map((template: any) => (
-                        <div
-                          key={template.id}
-                          onClick={() => setSelectedTemplate(template.id)}
-                          className={`border-2 rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-xl ${
-                            selectedTemplate === template.id
-                              ? "border-primary bg-primary/5 shadow-lg"
-                              : "border-slate-300 hover:border-slate-400"
-                          }`}
-                        >
-                          {/* Template Preview Header */}
+                      {availableTemplates.map((template: any, index: number) => {
+                        const isLocked =
+                          templateLimit !== null && index >= templateLimit;
+
+                        const handleTemplateClick = () => {
+                          if (isLocked) {
+                            const currentPlanName = currentPlan?.name || "your plan";
+                            openUpgradePlanModal(
+                              `This template is not available on your current plan (${currentPlanName}). ${
+                                templateLimit
+                                  ? `Your plan allows access to ${templateLimit} template${templateLimit === 1 ? "" : "s"}.`
+                                  : ""
+                              } Please upgrade your plan to access this template.`,
+                            );
+                          } else {
+                            setSelectedTemplate(template.id);
+                          }
+                        };
+
+                        return (
                           <div
-                            className="h-48 border-b-4"
-                            style={{
-                              background: `linear-gradient(135deg, ${template.colors.primary} 0%, ${template.colors.secondary} 50%, ${template.colors.accent} 100%)`,
-                            }}
+                            key={template.id}
+                            onClick={handleTemplateClick}
+                            className={`border-2 rounded-xl overflow-hidden transition-all relative ${
+                              isLocked
+                                ? "cursor-not-allowed opacity-60 border-slate-200 bg-slate-50"
+                                : `cursor-pointer hover:shadow-xl ${
+                                    selectedTemplate === template.id
+                                      ? "border-primary bg-primary/5 shadow-lg"
+                                      : "border-slate-300 hover:border-slate-400"
+                                  }`
+                            }`}
                           >
-                            <div className="h-full flex items-center justify-center">
-                              <div className="text-center text-white">
-                                <div className="text-4xl font-black mb-2">
-                                  {template.id === "theme-a" && "₹�"}
-                                  {template.id === "theme-b" && "🎆"}
+                            {/* Lock Overlay */}
+                            {isLocked && (
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-10 rounded-[11px]">
+                                <div className="text-center text-white">
+                                  <div className="text-3xl mb-2">🔒</div>
+                                  <p className="font-semibold text-sm">
+                                    Upgrade Plan
+                                  </p>
                                 </div>
-                                <p className="text-sm font-semibold opacity-90">
-                                  {template.name}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Template Info */}
-                          <div className="p-6">
-                            <h4 className="text-lg font-bold text-slate-900 mb-2">
-                              {template.name}
-                            </h4>
-                            <p className="text-sm text-slate-600 mb-4 line-clamp-3">
-                              {template.description}
-                            </p>
-
-                            {/* Layout Preview Text */}
-                            <div className="bg-slate-100 rounded-lg p-3 mb-4 text-xs text-slate-700 font-medium">
-                              {template.preview}
-                            </div>
-
-                            {/* Color Indicators */}
-                            <div className="mb-4">
-                              <p className="text-xs font-semibold text-slate-600 mb-2">
-                                Theme Colors:
-                              </p>
-                              <div className="flex gap-2">
-                                <div
-                                  className="flex-1 h-8 rounded-lg border border-slate-300"
-                                  style={{
-                                    backgroundColor: template.colors.primary,
-                                  }}
-                                  title="Primary"
-                                ></div>
-                                <div
-                                  className="flex-1 h-8 rounded-lg border border-slate-300"
-                                  style={{
-                                    backgroundColor: template.colors.secondary,
-                                  }}
-                                  title="Secondary"
-                                ></div>
-                                <div
-                                  className="flex-1 h-8 rounded-lg border border-slate-300"
-                                  style={{
-                                    backgroundColor: template.colors.accent,
-                                  }}
-                                  title="Accent"
-                                ></div>
-                              </div>
-                            </div>
-
-                            {/* Selection Badge */}
-                            {selectedTemplate === template.id && (
-                              <div className="flex items-center justify-center gap-2 bg-primary/10 text-primary font-bold py-2 rounded-lg border border-primary">
-                                <Check className="w-4 h-4" />
-                                Currently Selected
                               </div>
                             )}
+
+                            {/* Template Preview Header */}
+                            <div
+                              className="h-48 border-b-4"
+                              style={{
+                                background: `linear-gradient(135deg, ${template.colors.primary} 0%, ${template.colors.secondary} 50%, ${template.colors.accent} 100%)`,
+                              }}
+                            >
+                              <div className="h-full flex items-center justify-center">
+                                <div className="text-center text-white">
+                                  <div className="text-4xl font-black mb-2">
+                                    {template.id === "theme-a" && "₹"}
+                                    {template.id === "theme-b" && "🎆"}
+                                  </div>
+                                  <p className="text-sm font-semibold opacity-90">
+                                    {template.name}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Template Info */}
+                            <div className="p-6">
+                              <h4 className="text-lg font-bold text-slate-900 mb-2">
+                                {template.name}
+                              </h4>
+                              <p className="text-sm text-slate-600 mb-4 line-clamp-3">
+                                {template.description}
+                              </p>
+
+                              {/* Layout Preview Text */}
+                              <div className="bg-slate-100 rounded-lg p-3 mb-4 text-xs text-slate-700 font-medium">
+                                {template.preview}
+                              </div>
+
+                              {/* Color Indicators */}
+                              <div className="mb-4">
+                                <p className="text-xs font-semibold text-slate-600 mb-2">
+                                  Theme Colors:
+                                </p>
+                                <div className="flex gap-2">
+                                  <div
+                                    className="flex-1 h-8 rounded-lg border border-slate-300"
+                                    style={{
+                                      backgroundColor: template.colors.primary,
+                                    }}
+                                    title="Primary"
+                                  ></div>
+                                  <div
+                                    className="flex-1 h-8 rounded-lg border border-slate-300"
+                                    style={{
+                                      backgroundColor: template.colors.secondary,
+                                    }}
+                                    title="Secondary"
+                                  ></div>
+                                  <div
+                                    className="flex-1 h-8 rounded-lg border border-slate-300"
+                                    style={{
+                                      backgroundColor: template.colors.accent,
+                                    }}
+                                    title="Accent"
+                                  ></div>
+                                </div>
+                              </div>
+
+                              {/* Selection Badge */}
+                              {selectedTemplate === template.id && (
+                                <div className="flex items-center justify-center gap-2 bg-primary/10 text-primary font-bold py-2 rounded-lg border border-primary">
+                                  <Check className="w-4 h-4" />
+                                  Currently Selected
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -5775,7 +5866,7 @@ export default function ClientAdminDashboard() {
                               bank_account_name: e.target.value,
                             })
                           }
-                          placeholder="Crackers"
+                          placeholder="COBRA TRADERS"
                         />
                       </div>
                       <div>
@@ -5790,7 +5881,7 @@ export default function ClientAdminDashboard() {
                               bank_account_number: e.target.value,
                             })
                           }
-                          placeholder="67890987567890"
+                          placeholder="41813993341"
                         />
                       </div>
                       <div>
@@ -5820,7 +5911,7 @@ export default function ClientAdminDashboard() {
                               ifsc_code: e.target.value,
                             })
                           }
-                          placeholder="788459578998"
+                          placeholder="SBIN0000975"
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -5858,7 +5949,7 @@ export default function ClientAdminDashboard() {
                               gpay_name: e.target.value,
                             })
                           }
-                          placeholder="kannan"
+                          placeholder="Soundharya"
                         />
                       </div>
                       <div>
@@ -5873,7 +5964,7 @@ export default function ClientAdminDashboard() {
                               gpay_number: e.target.value,
                             })
                           }
-                          placeholder="99999xxxxx"
+                          placeholder="9344746164"
                         />
                       </div>
                     </div>
@@ -5896,7 +5987,7 @@ export default function ClientAdminDashboard() {
                               upi_name: e.target.value,
                             })
                           }
-                          placeholder="test"
+                          placeholder="Harisudhan"
                         />
                       </div>
                       <div>
@@ -5911,7 +6002,7 @@ export default function ClientAdminDashboard() {
                               upi_id: e.target.value,
                             })
                           }
-                          placeholder="999999999@gopherrc"
+                          placeholder="9677833373@gopherrc"
                         />
                       </div>
                     </div>
