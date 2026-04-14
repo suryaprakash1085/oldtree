@@ -1239,7 +1239,7 @@ export const getBusinessDetails: RequestHandler = async (req, res) => {
     }
 
     const tenants = await query(
-      "SELECT id, company_name, domain, contact_email, contact_phone, logo_url, youtube_url, instagram_url, facebook_url FROM tenants WHERE id = ?",
+      "SELECT id, company_name, domain, contact_email, contact_phone, logo_url, youtube_url, instagram_url, facebook_url, billing_plan FROM tenants WHERE id = ?",
       [tenantId],
     );
 

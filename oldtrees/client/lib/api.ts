@@ -1017,6 +1017,39 @@ export async function getSuperAdminPricing() {
   return response.json();
 }
 
+/**
+ * Get the current plan details for the tenant
+ * Returns the plan that matches the tenant's billing_plan field
+ */
+export async function getCurrentPlanDetails(tenantId?: string) {
+  try {
+    // Get tenant's billing plan name
+    const bizDetailsResponse = await getBusinessDetails(tenantId);
+    const billingPlanName = bizDetailsResponse.data?.billing_plan;
+
+    if (!billingPlanName) {
+      return { success: false, data: null };
+    }
+
+    // Get all pricing plans
+    const pricingResponse = await getSuperAdminPricing();
+    const allPlans = pricingResponse.data || [];
+
+    // Find the plan that matches the tenant's billing plan name
+    const currentPlan = allPlans.find(
+      (plan: any) => plan.name === billingPlanName
+    );
+
+    return {
+      success: !!currentPlan,
+      data: currentPlan || null,
+    };
+  } catch (error) {
+    console.error("Failed to get current plan details:", error);
+    return { success: false, data: null };
+  }
+}
+
 export async function createSuperAdminPricing(data: {
   name: string;
   description?: string;

@@ -1392,226 +1392,244 @@ const getLatestUniqueFeatures = (features: string[]) => {
         </div>
 
         {/* Pricing Modal - Global Level */}
-        {showPricingModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                <h3 className="text-xl font-bold text-slate-900">
-                  {editingPricingId ? "Edit Pricing Plan" : "Add New Pricing Plan"}
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowPricingModal(false);
-                    setEditingPricingId(null);
-                    setSelectedFeatureValues([]);
-                    setPricingForm({
-                      name: "",
-                      description: "",
-                      price: "",
-                      currency: "₹",
-                      billingPeriod: "month",
-                      features: "",
-                    });
-                  }}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <form
-                onSubmit={handleCreatePricing}
-                className="p-6 space-y-4"
-                autoComplete="off"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Plan Name *
-                  </label>
-                  <Input
-                    value={pricingForm.name}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        name: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Description
-                  </label>
-                  <Input
-                    value={pricingForm.description}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-900 mb-1">
-                      Price
-                    </label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={pricingForm.price}
-                      onChange={(e) =>
-                        setPricingForm({
-                          ...pricingForm,
-                          price: e.target.value,
-                        })
-                      }
-                      placeholder="e.g., 1200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-900 mb-1">
-                      Currency
-                    </label>
-                    <Input
-                      value={pricingForm.currency}
-                      onChange={(e) =>
-                        setPricingForm({
-                          ...pricingForm,
-                          currency: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Billing Period *
-                  </label>
-                  <select
-                    value={pricingForm.billingPeriod}
-                    onChange={(e) =>
-                      setPricingForm({
-                        ...pricingForm,
-                        billingPeriod: e.target.value,
-                      })
-                    }
-                    className="w-full border border-slate-300 rounded-lg p-2"
-                    required
-                  >
-                    <option value="month">Monthly</option>
-                    <option value="year">Yearly</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Features
-                  </label>
-                   {featuresCategories.length > 0 ? (
-  <div className="border border-slate-300 rounded-lg p-2 max-h-40 overflow-y-auto bg-white">
-    {Array.from(
-      new Set(
-        featuresCategories.flatMap((item: any) =>
-          Array.isArray(item.categories) ? item.categories : []
-        )
-      )
-    ).map((category: string) => {
-      const normalizedCategory = category.trim();
-      const normalizeValue = (value: string) => value.trim().toLowerCase();
-      const selectedFeatures = selectedFeatureValues
-        .map((f) => f.trim())
-        .filter(Boolean);
-     const containsNormalized = (list: string[], value: string) =>
-  list.some(
-    (item) => item.trim().toLowerCase() === value.trim().toLowerCase()
-  );
-     return (
-        <label
-          key={normalizedCategory}
-          className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 rounded cursor-pointer text-sm"
+      {showPricingModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      {/* Modal Header */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+        <h3 className="text-xl font-bold text-slate-900">
+          {editingPricingId ? "Edit Pricing Plan" : "Add New Pricing Plan"}
+        </h3>
+        <button
+          onClick={() => {
+            setShowPricingModal(false);
+            setEditingPricingId(null);
+            setSelectedFeatureValues([]);
+            setPricingForm({
+              name: "",
+              description: "",
+              price: "",
+              currency: "₹",
+              billingPeriod: "month",
+              features: "",
+            });
+          }}
+          className="text-slate-400 hover:text-slate-600"
         >
-          <input
-            type="checkbox"
-            checked={containsNormalized(selectedFeatures, normalizedCategory)}
-            onChange={(e) => {
-              setSelectedFeatureValues((prev) => {
-                const normalizedPrev = prev
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Modal Form */}
+      <form
+        onSubmit={handleCreatePricing}
+        className="p-6 space-y-4"
+        autoComplete="off"
+      >
+        {/* Plan Name */}
+        <div>
+          <label className="block text-sm font-medium text-slate-900 mb-1">
+            Plan Name *
+          </label>
+          <Input
+            value={pricingForm.name}
+            onChange={(e) =>
+              setPricingForm({ ...pricingForm, name: e.target.value })
+            }
+            required
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-slate-900 mb-1">
+            Description
+          </label>
+          <Input
+            value={pricingForm.description}
+            onChange={(e) =>
+              setPricingForm({ ...pricingForm, description: e.target.value })
+            }
+          />
+        </div>
+
+        {/* Price & Currency */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-1">
+              Price
+            </label>
+            <Input
+              type="number"
+              step="0.01"
+              value={pricingForm.price}
+              onChange={(e) =>
+                setPricingForm({ ...pricingForm, price: e.target.value })
+              }
+              placeholder="e.g., 1200"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-900 mb-1">
+              Currency
+            </label>
+            <Input
+              value={pricingForm.currency}
+              onChange={(e) =>
+                setPricingForm({ ...pricingForm, currency: e.target.value })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Billing Period */}
+        <div>
+          <label className="block text-sm font-medium text-slate-900 mb-1">
+            Billing Period *
+          </label>
+          <select
+            value={pricingForm.billingPeriod}
+            onChange={(e) =>
+              setPricingForm({ ...pricingForm, billingPeriod: e.target.value })
+            }
+            className="w-full border border-slate-300 rounded-lg p-2"
+            required
+          >
+            <option value="month">Monthly</option>
+            <option value="year">Yearly</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        {/* Features */}
+        <div>
+          <label className="block text-sm font-medium text-slate-900 mb-1">
+            Features
+          </label>
+
+          {featuresCategories.length > 0 ? (
+            <div className="border border-slate-300 rounded-lg p-2 max-h-40 overflow-y-auto bg-white">
+              {Array.from(
+                new Set(
+                  featuresCategories.flatMap((item: any) =>
+                    Array.isArray(item.categories)
+                      ? item.categories
+                          .map((cat: any) =>
+                            typeof cat === "string" ? cat : cat?.name || ""
+                          )
+                          .filter(Boolean)
+                      : []
+                  )
+                )
+              ).map((category: string, index: number) => {
+                const normalizedCategory = category.trim();
+                if (!normalizedCategory) return null;
+
+                const normalizeValue = (value: string) =>
+                  value.trim().toLowerCase();
+
+                const selectedFeatures = selectedFeatureValues
                   .map((f) => f.trim())
                   .filter(Boolean);
-                if (e.target.checked) {
-                  if (containsNormalized(normalizedPrev, normalizedCategory)) {
-                    return normalizedPrev;
-                  }
-                  return [...normalizedPrev, normalizedCategory];
-                }
-                return normalizedPrev.filter(
-                  (f) => normalizeValue(f) !== normalizeValue(normalizedCategory)
+
+                const containsNormalized = (list: string[], value: string) =>
+                  list.some(
+                    (item) =>
+                      item.trim().toLowerCase() === value.trim().toLowerCase()
+                  );
+
+                return (
+                  <label
+                    key={normalizedCategory + index}
+                    className="flex items-center gap-2 px-2 py-1 hover:bg-slate-100 rounded cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={containsNormalized(
+                        selectedFeatures,
+                        normalizedCategory
+                      )}
+                      onChange={(e) => {
+                        setSelectedFeatureValues((prev) => {
+                          const normalizedPrev = prev
+                            .map((f) => f.trim())
+                            .filter(Boolean);
+
+                          if (e.target.checked) {
+                            if (
+                              containsNormalized(
+                                normalizedPrev,
+                                normalizedCategory
+                              )
+                            ) {
+                              return normalizedPrev;
+                            }
+                            return [...normalizedPrev, normalizedCategory];
+                          }
+
+                          return normalizedPrev.filter(
+                            (f) =>
+                              normalizeValue(f) !==
+                              normalizeValue(normalizedCategory)
+                          );
+                        });
+                      }}
+                      className="accent-blue-600"
+                    />
+                    {normalizedCategory}
+                  </label>
                 );
+              })}
+            </div>
+          ) : (
+            <textarea
+              name="pricing-features"
+              autoComplete="off"
+              spellCheck={false}
+              inputMode="text"
+              value={pricingForm.features}
+              onChange={(e) =>
+                setPricingForm({ ...pricingForm, features: e.target.value })
+              }
+              rows={5}
+              placeholder={`Up to 100 products
+Basic analytics
+Email support`}
+              className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
+            />
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4">
+          <Button type="submit" className="flex-1">
+            {editingPricingId ? "Update Plan" : "Create Plan"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowPricingModal(false);
+              setEditingPricingId(null);
+              setSelectedFeatureValues([]);
+              setPricingForm({
+                name: "",
+                description: "",
+                price: "",
+                currency: "₹",
+                billingPeriod: "month",
+                features: "",
               });
             }}
-            className="accent-blue-600"
-          />
-          {normalizedCategory}
-        </label>
-      );
-    })}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </div>
   </div>
-) : (
-                    <textarea
-                      name="pricing-features"
-                      autoComplete="off"
-                      spellCheck={false}
-                      inputMode="text"
-                      value={pricingForm.features}
-                      onChange={(e) =>
-                        setPricingForm({
-                          ...pricingForm,
-                          features: e.target.value,
-                        })
-                      }
-                      rows={5}
-                      placeholder="Up to 100 products&#10;Basic analytics&#10;Email support"
-                      className="w-full border border-slate-300 rounded-lg p-2 font-mono text-sm"
-                    />
-                  )}
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingPricingId ? "Update Plan" : "Create Plan"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowPricingModal(false);
-                      setEditingPricingId(null);
-                      setSelectedFeatureValues([]);
-                      setPricingForm({
-                        name: "",
-                        description: "",
-                        price: "",
-                        currency: "₹",
-                        billingPeriod: "month",
-                        features: "",
-                      });
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+)}
       </div>
     </div>
   );

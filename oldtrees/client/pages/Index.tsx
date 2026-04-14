@@ -15,8 +15,52 @@ import {
   CheckCircle2,
   ArrowRight,
 } from "lucide-react";
+import { useEffect, useState,useRef  } from "react";
+import { getSuperAdminPricing } from "@/lib/api";
+
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Index() {
+
+
+  // State add பண்ணுங்கள்
+const [plans, setPlans] = useState([]);
+  const [showYearly, setShowYearly] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(3);
+
+  // Fetch pricing
+  useEffect(() => {
+    getSuperAdminPricing()
+      .then((res) => {
+        if (res.success) setPlans(res.data);
+      })
+      .catch(console.error);
+  }, []);
+
+  // Responsive visible count
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) setVisibleCount(1);
+      else if (window.innerWidth < 1024) setVisibleCount(2);
+      else setVisibleCount(3);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Reset index on toggle
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [showYearly]);
+
+  const filteredPlans = plans.filter((plan) =>
+    showYearly ? plan.billing_period === "year" : plan.billing_period === "month"
+  );
+
+
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Navigation */}
@@ -284,91 +328,119 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Simple, Transparent Pricing
-          </h2>
-          <p className="text-xl text-slate-600">
-            Affordable plans for businesses of any size
-          </p>
-        </div>
+ {/* Pricing Section */}
+<section className="max-w-7xl mx-auto px-6 py-20">
+  <div className="text-center mb-16">
+    <h2 className="text-4xl font-bold text-slate-900 mb-4">
+      Simple, Transparent Pricing
+    </h2>
+    <p className="text-xl text-slate-600 mb-8">
+      Affordable plans for businesses of any size
+    </p>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              name: "Starter",
-              price: "₹1,200",
-              period: "per month",
-              features: [
-                "Up to 5 client stores",
-                "Basic analytics",
-                "Email support",
-                "1 theme included",
-              ],
-            },
-            {
-              name: "Growth",
-              price: "₹5,000",
-              period: "per month",
-              features: [
-                "Up to 50 client stores",
-                "Advanced analytics",
-                "Priority support",
-                "5 themes included",
-                "Custom branding",
-              ],
-              highlighted: true,
-            },
-            {
-              name: "Enterprise",
-              price: "Custom",
-              period: "contact us",
-              features: [
-                "Unlimited stores",
-                "Custom analytics",
-                "Dedicated support",
-                "Custom themes",
-                "SLA guarantee",
-              ],
-            },
-          ].map((plan) => (
-            <div
-              key={plan.name}
-              className={`rounded-xl p-8 border transition-all duration-300 ${
-                plan.highlighted
-                  ? "bg-gradient-to-br from-primary/10 to-purple-600/10 border-primary/50 shadow-xl scale-105"
-                  : "bg-white border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                {plan.name}
-              </h3>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-slate-900">
-                  {plan.price}
-                </span>
-                <span className="text-slate-600 ml-2">{plan.period}</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-3">
-                    <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="text-slate-700">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                className="w-full"
-                variant={plan.highlighted ? "default" : "outline"}
-              >
-                Get Started
-              </Button>
+    {/* Toggle */}
+    <div className="inline-flex items-center gap-3 bg-slate-100 rounded-full p-1">
+      <button
+        onClick={() => setShowYearly(false)}
+        className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+          !showYearly ? "bg-white shadow text-slate-900" : "text-slate-500"
+        }`}
+      >
+        Monthly
+      </button>
+      <button
+        onClick={() => setShowYearly(true)}
+        className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+          showYearly ? "bg-white shadow text-slate-900" : "text-slate-500"
+        }`}
+      >
+        Yearly
+        <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+          Save more
+        </span>
+      </button>
+    </div>
+  </div>
+
+  {/* Carousel */}
+  <div className="relative">
+    {/* Prev Button */}
+    <button
+      onClick={() => setActiveIndex((prev) => Math.max(prev - 1, 0))}
+      disabled={activeIndex === 0}
+      className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white border border-slate-200 rounded-full shadow flex items-center justify-center disabled:opacity-30 hover:bg-slate-50 transition"
+    >
+      <ChevronLeft className="w-5 h-5 text-slate-600" />
+    </button>
+
+    {/* Cards Wrapper */}
+    <div className="overflow-hidden px-4">
+      <div
+        className="flex transition-transform duration-500 ease-in-out gap-6"
+        style={{
+          transform: `translateX(calc(-${activeIndex} * (100% / ${visibleCount} + ${visibleCount === 1 ? 24 : visibleCount === 2 ? 12 : 8}px)))`,
+        }}
+      >
+        {filteredPlans.map((plan, index) => (
+          <div
+            key={plan.id}
+            className={`flex-shrink-0 rounded-xl p-8 border transition-all duration-300 ${
+              index === 1
+                ? "bg-gradient-to-br from-primary/10 to-purple-600/10 border-primary/50 shadow-xl"
+                : "bg-white border-slate-200 hover:border-slate-300"
+            }`}
+            style={{ width: `calc(${100 / visibleCount}% - ${visibleCount > 1 ? "16px" : "0px"})` }}
+          >
+            <h3 className="text-2xl font-bold text-slate-900 mb-1">{plan.name}</h3>
+            <p className="text-slate-500 text-sm mb-4">{plan.description}</p>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-slate-900">
+                {plan.currency}{parseFloat(plan.price).toLocaleString("en-IN")}
+              </span>
+              <span className="text-slate-600 ml-2">/ {plan.billing_period}</span>
             </div>
-          ))}
-        </div>
-      </section>
+            <ul className="space-y-3 mb-8">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="text-slate-700 capitalize">{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full"
+              variant={index === 1 ? "default" : "outline"}
+            >
+              Get Started
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Next Button */}
+    <button
+      onClick={() => setActiveIndex((prev) => Math.min(prev + 1, filteredPlans.length - visibleCount))}
+      disabled={activeIndex >= filteredPlans.length - visibleCount}
+      className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white border border-slate-200 rounded-full shadow flex items-center justify-center disabled:opacity-30 hover:bg-slate-50 transition"
+    >
+      <ChevronRight className="w-5 h-5 text-slate-600" />
+    </button>
+  </div>
+
+  {/* Dots */}
+  <div className="flex justify-center gap-2 mt-8">
+    {filteredPlans.map((_, i) => (
+      <button
+        key={i}
+        onClick={() => setActiveIndex(Math.min(i, filteredPlans.length - visibleCount))}
+        className={`w-2.5 h-2.5 rounded-full transition-all ${
+          i === activeIndex ? "bg-primary w-6" : "bg-slate-300"
+        }`}
+      />
+    ))}
+  </div>
+</section>
 
       {/* CTA Section */}
       <section className="max-w-7xl mx-auto px-6 py-20">
