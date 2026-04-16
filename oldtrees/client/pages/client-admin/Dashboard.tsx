@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { State, City } from "country-state-city";
 import {
   ShoppingCart,
   TrendingUp,
@@ -208,14 +209,16 @@ export default function ClientAdminDashboard() {
   });
 
 
-   const [customerForm, setCustomerForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    city: "",
-    country: "",
-  });
+ const [customerForm, setCustomerForm] = useState({
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  city: "",
+  state: "",           // ADD THIS
+  country: "",
+  countryCode: "IN",   // ADD THIS (default India)
+});
 
   const [staffForm, setStaffForm] = useState({
     email: "",
@@ -367,6 +370,13 @@ export default function ClientAdminDashboard() {
     target_email: "",
     email_notify_enabled: false,
   });
+
+// city, state, country dropdown data
+const states = State.getStatesOfCountry(customerForm.countryCode || "IN");
+const cities = City.getCitiesOfState(
+  customerForm.countryCode || "IN",
+  customerForm.state
+);
 
   const [tabLoading, setTabLoading] = useState(false);
 
@@ -1606,12 +1616,14 @@ const handlePlanLimitError = (error: any): string | null => {
   
   const handleEditCustomer = (customer: any) => {
     setCustomerForm({
-      first_name: customer.first_name || "",
-      last_name: customer.last_name || "",
-      email: customer.email || "",
-      phone: customer.phone || "",
-      city: customer.city || "",
-      country: customer.country || "",
+       first_name: customer.first_name || "",
+    last_name: customer.last_name || "",
+    email: customer.email || "",
+    phone: customer.phone || "",
+    city: customer.city || "",
+    state: customer.state || "",
+    country: customer.country || "",
+    countryCode: customer.country_code || "IN",
     });
     setEditingCustomerId(customer.id);
     setShowCustomerModal(true);
@@ -1629,12 +1641,14 @@ const handlePlanLimitError = (error: any): string | null => {
       setShowCustomerModal(false);
       setEditingCustomerId(null);
       setCustomerForm({
-        first_name: "",
-        last_name: "",
-        email: "",
-        phone: "",
-        city: "",
-        country: "",
+         first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  city: "",
+  state: "",
+  country: "",
+  countryCode: "IN",
       });
       await fetchTabData("customers", true);
     } catch (error) {
@@ -4927,25 +4941,64 @@ const handlePlanLimitError = (error: any): string | null => {
           className="w-full border p-2 rounded"
         />
 
-        <input
-          type="text"
-          placeholder="City"
-          value={customerForm.city}
-          onChange={(e) =>
-            setCustomerForm({ ...customerForm, city: e.target.value })
-          }
-          className="w-full border p-2 rounded"
-        />
+      {/* State dropdown */}
+{/* State autocomplete */}
+<div className="relative">
+  <input
+    type="text"
+    placeholder="Search State..."
+    value={
+      customerForm.state
+        ? states.find((s) => s.isoCode === customerForm.state)?.name ?? customerForm.state
+        : ""
+    }
+    onChange={(e) => {
+      const typed = e.target.value;
+      // If user clears, reset state and city
+      if (!typed) {
+        setCustomerForm({ ...customerForm, state: "", city: "" });
+        return;
+      }
+      // Try to match exact name -> store isoCode
+      const match = states.find(
+        (s) => s.name.toLowerCase() === typed.toLowerCase()
+      );
+      if (match) {
+        setCustomerForm({ ...customerForm, state: match.isoCode, city: "" });
+      } else {
+        // Store raw typed value temporarily so dropdown filters
+        setCustomerForm({ ...customerForm, state: typed, city: "" });
+      }
+    }}
+    list="state-list"
+    className="w-full border p-2 rounded"
+  />
+  <datalist id="state-list">
+    {states.map((s) => (
+      <option key={s.isoCode} value={s.name} />
+    ))}
+  </datalist>
+</div>
 
-        <input
-          type="text"
-          placeholder="Country"
-          value={customerForm.country}
-          onChange={(e) =>
-            setCustomerForm({ ...customerForm, country: e.target.value })
-          }
-          className="w-full border p-2 rounded"
-        />
+{/* City autocomplete */}
+<div className="relative">
+  <input
+    type="text"
+    placeholder={customerForm.state ? "Search City..." : "Select a state first"}
+    disabled={!customerForm.state}
+    value={customerForm.city}
+    onChange={(e) =>
+      setCustomerForm({ ...customerForm, city: e.target.value })
+    }
+    list="city-list"
+    className="w-full border p-2 rounded disabled:opacity-50 disabled:bg-gray-100"
+  />
+  <datalist id="city-list">
+    {cities.map((c) => (
+      <option key={c.name} value={c.name} />
+    ))}
+  </datalist>
+</div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button
