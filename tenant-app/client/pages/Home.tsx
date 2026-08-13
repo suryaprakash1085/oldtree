@@ -27,9 +27,9 @@ export default function Home() {
         const config = await getStorefrontConfig(tenantId);
 
         const seo = (config as any)?.seo || {
-          title: "Sri Dhiya Crackers - Buy Fireworks Online | Sivakasi",
+          title: "MKP Crackers - Buy Fireworks Online | Sivakasi",
           description:
-            "Buy premium quality fireworks and crackers from Sri Dhiya Crackers, Sivakasi. Best prices, safe delivery across Tamil Nadu.",
+            "Buy premium quality fireworks and crackers from MKP Crackers, Sivakasi. Best prices, safe delivery across Tamil Nadu.",
           keywords: "crackers, fireworks, sivakasi crackers, buy crackers online",
         };
 
@@ -86,29 +86,29 @@ if (path === "products" && page) {
 // let pageDescription = "";
 
 // if (path === "home") {
-//   pageDescription = "Buy premium quality fireworks from Sri Dhiya Crackers in Sivakasi. Best price and safe delivery.";
+//   pageDescription = "Buy premium quality fireworks from MKP Crackers in Sivakasi. Best price and safe delivery.";
 // } else if (path === "products") {
-//   pageDescription = "Explore a wide range of crackers and fireworks at Sri Dhiya Crackers. Affordable prices and top quality.";
+//   pageDescription = "Explore a wide range of crackers and fireworks at MKP Crackers. Affordable prices and top quality.";
 // } else if (path === "contact") {
-//   pageDescription = "Contact Sri Dhiya Crackers for bulk orders and safe delivery across Tamil Nadu.";
+//   pageDescription = "Contact MKP Crackers for bulk orders and safe delivery across Tamil Nadu.";
 // } else {
 //   pageDescription = seo.description;
 // }
 let pageDescription = "";
 
 if (path === "home") {
-  pageDescription = "Buy premium quality fireworks from Sri Dhiya Crackers in Sivakasi. Best price and safe delivery.";
+  pageDescription = "Buy premium quality fireworks from MKP Crackers in Sivakasi. Best price and safe delivery.";
 } else if (path === "products") {
   const params = new URLSearchParams(window.location.search);
   const page = params.get("page");
 
   if (page) {
-    pageDescription = `Explore crackers page ${page} at Sri Dhiya Crackers. Best price and quality.`;
+    pageDescription = `Explore crackers page ${page} at MKP Crackers. Best price and quality.`;
   } else {
-    pageDescription = "Explore a wide range of crackers and fireworks at Sri Dhiya Crackers. Affordable prices and top quality.";
+    pageDescription = "Explore a wide range of crackers and fireworks at MKP Crackers. Affordable prices and top quality.";
   }
 } else if (path === "contact") {
-  pageDescription = "Contact Sri Dhiya Crackers for bulk orders and safe delivery across Tamil Nadu.";
+  pageDescription = "Contact MKP Crackers for bulk orders and safe delivery across Tamil Nadu.";
 } else {
   pageDescription = seo.description;
 }
